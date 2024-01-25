@@ -1,0 +1,59 @@
+#include "cache.h"
+#include <iostream>
+#include <map>
+#include <cassert> // Include the assert header
+
+// Define a static variable to store the last accessed address
+static uint64_t last_accessed_address = 0;
+
+// Define a map to store the frequency of each stride
+static std::map<int64_t, int64_t> stride_frequency;
+
+void CACHE::l1d_prefetcher_initialize() 
+{
+    // Initialize last_accessed_address and stride_frequency if needed
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+{
+    // Assert that the address is non-negative
+    assert(addr >= 0);
+
+    // Calculate the stride (difference between consecutive addresses)
+    uint64_t stride = 0;
+    if (last_accessed_address != 0) {
+        stride = (addr >> LOG2_BLOCK_SIZE) - (last_accessed_address>>LOG2_BLOCK_SIZE);
+    }
+
+    // Update last_accessed_address with the current address
+    last_accessed_address = addr;
+
+    // Update the frequency of the stride in the map
+    stride_frequency[stride]++;
+
+    // Use stride and stride_frequency as needed
+    // std::cout << "Stride: " << stride << " Frequency: " << stride_frequency[stride] << std::endl;
+
+    // Rest of your prefetcher_operate logic
+}
+
+void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+    // Implementation for notify_about_dtlb_eviction if needed
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+{
+    // Implementation for cache_fill if needed
+}
+
+void CACHE::l1d_prefetcher_final_stats()
+{
+    // Print the pairs from the stride_frequency map
+    std::cout << "Stride Frequency Stats:" << std::endl;
+    for (const auto& pair : stride_frequency) {
+        std::cout<<"Stride : " << pair.first << " ," << pair.second << std::endl;
+    }
+
+    // Implementation for other final_stats if needed
+}

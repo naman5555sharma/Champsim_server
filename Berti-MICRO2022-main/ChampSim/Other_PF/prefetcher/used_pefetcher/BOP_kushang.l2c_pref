@@ -1,0 +1,165 @@
+#include "cache.h"
+
+#define NUM_OFFSETS 46
+#define DELAY_QUEUE_SIZE 15
+#define NUM_RR_TABLE_ROWS 64
+#define OFFSET_SCORE_MAX 31
+#define OFFSET_SCORE_MIN 10
+#define PREFETCH_MAX_ROUND 100
+#define TIME_DELAY_OF_INSERTION 60
+
+int8_t OFFSETS_LIST[NUM_OFFSETS] = {-1,-2,-3,-4,-5,-6,-8,-9,-10,-12,-15,-16,-18,-20,-24,-25,-27,-30,-32,-36,-40,-45,-48,1,2,3,4,5,6,8,9,10,12,15,16,18,20,24,25,27,30,32,36,40,45,48};
+
+class DELAY_QUEUE_ENTRY{
+public:
+	uint64_t addr;
+	bool valid;
+	uint64_t cycle_when_inserted;
+	DELAY_QUEUE_ENTRY(){
+		valid = 0;
+	}
+};
+
+class L2C_Prefetcher_Data{
+public:
+	uint8_t curr_offset, round, score_max, curr_offset_ind, right_bank_ind, left_bank_ind;
+	uint8_t offset_scores[NUM_OFFSETS];
+	DELAY_QUEUE_ENTRY delay_queue[DELAY_QUEUE_SIZE];
+	uint64_t left_bank[NUM_RR_TABLE_ROWS];
+	uint64_t right_bank[NUM_RR_TABLE_ROWS];
+	L2C_Prefetcher_Data(){
+		for(int i=0;i<NUM_OFFSETS;i++){
+			offset_scores[i] = 0;
+		}
+		for(int i=0;i<NUM_RR_TABLE_ROWS;i++){
+			left_bank[i] = 0;
+			right_bank[i] = 0;
+		}
+		curr_offset=1;
+		round=0;
+		score_max=0;
+		curr_offset_ind=0;
+		right_bank_ind=0;
+		left_bank_ind=0;
+	}
+	void update_delay_queue(uint64_t curr_cycle){
+		for(int i=0;i<DELAY_QUEUE_SIZE;i++){
+			if(delay_queue[i].valid && delay_queue[i].cycle_when_inserted + TIME_DELAY_OF_INSERTION <= curr_cycle){
+				delay_queue[i].valid = 0;
+				left_bank[left_bank_ind] = delay_queue[i].addr;
+				left_bank_ind++;left_bank_ind%=NUM_RR_TABLE_ROWS;
+			}
+		}
+	}
+};
+
+L2C_Prefetcher_Data L2C_BEST_OFFSET_PREFETCH_DATA[NUM_CPUS];
+
+void CACHE::l2c_prefetcher_initialize() { 
+	cout << "CPU " << cpu << " L2C best offset prefetcher" << endl; 
+}
+
+uint32_t CACHE::l2c_prefetcher_operate(
+    uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint32_t metadata_in,uint8_t critical_ip_flag) {
+	L2C_BEST_OFFSET_PREFETCH_DATA[cpu].update_delay_queue(current_core_cycle[cpu]);
+	//Store addr in left table through delay queue
+    if (type != LOAD)
+        return metadata_in;
+
+    //uint64_t pf_addr = ((addr >> LOG2_BLOCK_SIZE) + 1) << LOG2_BLOCK_SIZE;
+	uint32_t set=get_set(addr>>LOG2_BLOCK_SIZE);
+	uint32_t way=get_way(addr>>LOG2_BLOCK_SIZE,set);
+	L2C_Prefetcher_Data *prf_data = &L2C_BEST_OFFSET_PREFETCH_DATA[cpu];
+	// cerr<<prf_data->curr_offset<<endl;
+	if(!cache_hit || block[set][way].prefetch){
+		uint64_t pf_addr = ((addr >> LOG2_BLOCK_SIZE) + prf_data->curr_offset);
+		if(prf_data->curr_offset == 0)	pf_addr = 0;
+		int changeable=-1;
+		bool change=true;
+		for(int i=0; i<DELAY_QUEUE_SIZE; i++){
+			if(prf_data->delay_queue[i].valid){
+				if(prf_data->delay_queue[i].addr==addr>>LOG2_BLOCK_SIZE){
+					change=false;
+					break;
+				}
+			}
+			else{
+				changeable=i;
+			}
+		}
+		if(change){
+			if(changeable!=-1){
+				prf_data->delay_queue[changeable].valid=1;
+				prf_data->delay_queue[changeable].addr=addr>>LOG2_BLOCK_SIZE;
+				prf_data->delay_queue[changeable].cycle_when_inserted=current_core_cycle[cpu];
+			}
+		}
+		//UPDATE OFFSET SCORES
+		uint64_t to_find = (addr >> LOG2_BLOCK_SIZE) - OFFSETS_LIST[prf_data->curr_offset_ind];
+		uint64_t *table1 = prf_data->left_bank;
+		uint64_t *table2 = prf_data->right_bank;
+		bool found = false;
+		for(int i=0;i<NUM_RR_TABLE_ROWS;i++){
+			if(table1[i] == to_find || table2[i] == to_find){
+				found = true;
+				break;
+			}
+		}
+		int idx = prf_data->curr_offset_ind;
+		if(found){
+			prf_data->offset_scores[idx] ++;
+		}
+		prf_data->curr_offset_ind++;
+		if(prf_data->curr_offset_ind == NUM_OFFSETS){ // Round completed
+			prf_data->round++;
+			prf_data->curr_offset_ind = 0;
+			int max_score = 0;
+			int max_score_idx = 0;
+			for(int i=0;i<NUM_OFFSETS;i++){
+				if(prf_data->offset_scores[i] > max_score){
+					max_score = prf_data->offset_scores[i];
+					max_score_idx = i;
+				}
+				// prf_data->offset_scores[i] = 0;
+			}
+			if(max_score == OFFSET_SCORE_MAX || prf_data->round == PREFETCH_MAX_ROUND){ // Phase completed
+				prf_data->round = 0;
+				if(max_score >= OFFSET_SCORE_MIN)	prf_data->curr_offset = OFFSETS_LIST[max_score_idx];
+				else	prf_data->curr_offset = 0;
+				for(int i=0;i<NUM_OFFSETS;i++){
+					prf_data->offset_scores[i] = 0;
+				}
+			}
+		}
+		// prf_data->score_max == OFFSET_SCORE_MAX
+		
+
+		if (pf_addr != 0)
+			prefetch_line(ip, addr, pf_addr<<LOG2_BLOCK_SIZE, FILL_L2, 0);
+	}
+
+    DP(if (warmup_complete[cpu]) {
+        cout << "[" << NAME << "] " << __func__ << hex << " base_cl: " << (addr >> LOG2_BLOCK_SIZE);
+        cout << " pf_cl: " << (pf_addr >> LOG2_BLOCK_SIZE) << " ip: " << ip << " cache_hit: " << +cache_hit
+             << " type: " << +type << endl;
+    });
+
+
+    return metadata_in;
+}
+
+uint32_t CACHE::l2c_prefetcher_cache_fill(
+    uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in) {
+	L2C_BEST_OFFSET_PREFETCH_DATA[cpu].update_delay_queue(current_core_cycle[cpu]);
+	//prefetch=true if type = PREFETCH
+	//if prefetch=true, store Y-O in RR right side
+	if(L2C_BEST_OFFSET_PREFETCH_DATA[cpu].curr_offset == 0 ||  prefetch){
+		L2C_BEST_OFFSET_PREFETCH_DATA[cpu].right_bank[L2C_BEST_OFFSET_PREFETCH_DATA[cpu].right_bank_ind]=((addr >> LOG2_BLOCK_SIZE) - L2C_BEST_OFFSET_PREFETCH_DATA[cpu].curr_offset);
+		L2C_BEST_OFFSET_PREFETCH_DATA[cpu].right_bank_ind++;
+		L2C_BEST_OFFSET_PREFETCH_DATA[cpu].right_bank_ind %= NUM_RR_TABLE_ROWS;
+	}
+	
+    return metadata_in;
+}
+
+void CACHE::l2c_prefetcher_final_stats() { cout << "CPU " << cpu << " L2C best offset prefetcher final stats" << endl; }
