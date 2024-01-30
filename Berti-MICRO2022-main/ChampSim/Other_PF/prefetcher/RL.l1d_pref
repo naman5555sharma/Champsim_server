@@ -1,0 +1,350 @@
+#include "cache.h"
+
+#include <map>
+#include <algorithm>
+
+// #define offset_numbers_count 20001
+#define access_interval 1024
+#define trace_total_count 5000
+
+static long long int trace_count = 0;
+static int potential_count =1;
+static std::vector<int64_t> offsets;
+// for (int i = -10000; i <= 10000; ++i)
+// {
+//     offsets.push_back(i);
+// }
+
+static std::vector<int> arm_n_count;
+
+static uint64_t n_total = 0;
+
+static std::vector<int32_t> reward;
+
+static std::vector<int64_t> rr(access_interval);
+static std::vector<int64_t> pf(access_interval);
+
+static std::vector<double> potential;
+
+static uint32_t access_index = 0;
+static uint64_t offsets_index = 0;
+static int sanity = 0;
+
+static uint64_t prev_addr;
+
+void CACHE::l1d_prefetcher_initialize()
+{
+    // static std::vector<int32_t> offsets;
+    // for (int i = -10; i <= 10 ; ++i) {
+    // offsets.push_back(i);
+    // }
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+{
+
+    // Assert that the address is non-negative
+    assert(addr >= 0);
+
+    uint64_t temp_addr;
+
+    if (trace_count == 0)
+    {
+        prev_addr = addr >> (LOG2_BLOCK_SIZE);
+        trace_count++;
+        return;
+    }
+
+    if (trace_count != trace_total_count)
+    {
+        temp_addr = addr >> (LOG2_BLOCK_SIZE);
+        // std::cout << "current address" << temp_addr <<std::endl;
+        int64_t stride;
+        stride = temp_addr - prev_addr;
+        // std::cout << "previous address" << prev_addr <<std::endl;
+        // std::cout << "stride" << stride <<std::endl;
+        prev_addr = temp_addr;
+        auto it = std::find(offsets.begin(), offsets.end(), stride);
+        if (it != offsets.end())
+        {
+            trace_count++;
+            return;
+        }
+        else
+        {
+            if(stride !=0)
+            offsets.push_back(stride);
+            trace_count++;
+            return;
+        }
+    }
+    
+    if (sanity == 0)
+    {
+        // Print all elements of the vector
+        std::cout << "Offsets elements: ";
+        // for (const auto &element : offsets)
+        // {
+        //     std::cout << element << " ";
+        // }
+        std::cout << std::endl;
+
+        std::cout << "Potential of Offsets elements: ";
+        for (const auto &element : potential)
+        {
+            std::cout << element << " ";
+        }
+        std::cout << std::endl;
+
+        std::cout << "rewards of Offsets elements: ";
+        for (const auto &element : reward)
+        {
+            std::cout << element << " ";
+        }
+        sanity++;
+        std::cout << "Printing Sanity" << sanity << std::endl;
+        std::cout << "offset list size" << offsets.size() << std::endl;
+    }
+    /*-----------------------------------------------------------------------------------------------------------*/
+    /*-----------------------------------------------------------------------------------------------------------*/
+    /*-----------------------------------------------------------------------------------------------------------*/
+    static int64_t best_arm = 0;
+    // std::cout << "below best arm"<<std::endl;
+    temp_addr = addr >> LOG2_BLOCK_SIZE;
+    // std::cout << "temp addr"<<std::endl;
+    if (offsets_index >= offsets.size())
+    {
+        // std::cout << "inside main loop after first round" << std::endl;
+        // std::cout << "Printing Sanity" << sanity <<std::endl;
+        if (sanity == 1)
+        {
+            // Print all elements of the vector
+            std::cout << "Offsets elements: ";
+            // for (const auto &element : offsets)
+            // {
+            //     std::cout << element << " ";
+            // }
+            std::cout << std::endl;
+
+            std::cout << "Potential of Offsets elements: ";
+            for (const auto &element : potential)
+            {
+                std::cout << element << " ";
+            }
+            std::cout << std::endl;
+
+            std::cout << "rewards of Offsets elements: ";
+            for (const auto &element : reward)
+            {
+                std::cout << element << " ";
+            }
+            sanity++;
+            std::cout << "Printing Sanity" << sanity << std::endl;
+            int access_index = 0;
+        }
+        // int access_index = 0;
+
+        int reward_index = 0;
+
+        int c = 6;
+        int32_t offset_reward = reward[reward_index];
+
+        int n_arms = reward.size();
+        // std::cout<<"no error till now"<<std::endl;
+        // std::cout<<"n_arms = "<< n_arms <<std::endl;
+        // int n_total = std::accumulate(arm_counts.begin(), arm_counts.end(), 0);
+        // std::vector<double> ucb_values(n_arms);
+        if(potential_count){
+        for (int i = 0; i < n_arms; ++i)
+        {
+            // std::cout<<"no error till now"<<std::endl;
+            double bonus = c * sqrt(log(n_total) / (arm_n_count[i]));
+            potential.push_back(reward[i] + bonus);
+            // std::cout << "potential values "<<potential[i];
+        }
+        potential_count= 0;
+        }
+        // Find the iterator to the maximum element
+        auto maxElementIterator = std::max_element(potential.begin(), potential.end());
+
+        // Find the index of the maximum element
+        size_t maxIndex = std::distance(potential.begin(), maxElementIterator);
+        // std::cout<<"no error till now"<<std::endl;
+        
+        // std::cout << "max index" << maxIndex << std::endl;
+
+
+
+        arm_n_count[maxIndex]++;
+        // std::cout << "max index arm n count" << arm_n_count[maxIndex] << std::endl;
+
+        n_total++;
+        // std::cout << "n_total" << n_total << std::endl;
+        rr[access_index] = temp_addr;
+
+        // std::cout<<" best_arm " << offsets[maxIndex +1] <<std::endl;
+
+        best_arm = offsets[maxIndex];
+        // std::cout << "best arm" << offsets[maxIndex] << std::endl;
+        // std::cout << "access Index " << access_index << std::endl;
+
+        uint64_t prefetch_addr = temp_addr + best_arm;
+
+        pf[access_index] = prefetch_addr;
+        prefetch_addr = prefetch_addr << LOG2_BLOCK_SIZE;
+        // std::cout << "Selected Offset" << best_arm << endl;
+        // prefetch_line(ip, addr, prefetch_addr, FILL_L1, 0);
+        // std::cout << "vedant checkong " << access_index << std::endl;
+        if (access_index == 1023)
+        {
+            // arm_n_count[offsets_index] = 1;
+
+            // n_total++;
+
+            int countSame = 0;
+
+            for (size_t i = 0; i < rr.size(); ++i)
+            {
+                // std::cout << "inside access_index == 511  for loop 1"<<std::endl;
+                for (size_t j = 0; j < pf.size(); j++)
+                {
+                    // std::cout << "inside access_index == 511  for loop 2"<<std::endl;
+                    // std::cout << "check kro "<<std::endl;
+                    if (rr[i] == pf[j])
+                    {
+                        countSame++;
+                        // std::cout<<"same hua same hua" << std::endl;
+                    }
+                }
+            }
+            // std::cout << "Selected Offset " << best_arm << endl;
+            reward[maxIndex] = (reward[maxIndex]  + countSame) / arm_n_count[maxIndex];
+            // std::cout << "Selected Offset " << best_arm << endl;
+            access_index =0;
+            // potential_count =1;
+        }
+        // std::cout << "vedant checkong out " << access_index << std::endl;
+        access_index = (access_index + 1) % access_interval;
+        // std::cout << "vedant checkong out after inc  " << access_index << std::endl;
+        if(best_arm!=0){
+        prefetch_line(ip, addr, prefetch_addr, FILL_L1, 0);
+        }
+        return; // forget to put in starting
+    }
+
+    int64_t arm;
+    // std::cout << "below arm"<<std::endl;
+    // if (best_arm != 0)
+    // {
+    //     uint64_t pf_best_arm = temp_addr + best_arm;
+    //     pf_best_arm << LOG2_BLOCK_SIZE;
+    //     prefetch_line(ip, addr, pf_best_arm, FILL_L1, 0);
+    // }
+
+    rr[access_index] = temp_addr;
+    // std::cout << "emtry in rr " << rr[access_index]<<std::endl;
+
+    // std::cout << "below rr"<<std::endl;
+    arm = offsets[offsets_index];
+    // std::cout <<"arm selected" << std::endl;
+    // std::cout << "below arm selection"<<std::endl;
+    uint64_t prefetch_addr = temp_addr + arm;
+    // std::cout <<"prefetch addr calculated " <<prefetch_addr<< std::endl;
+    // std::cout << "below prefetch_addr"<<std::endl;
+    pf[access_index] = prefetch_addr;
+    prefetch_addr = prefetch_addr << LOG2_BLOCK_SIZE;
+    // std::cout <<"entry in pf "<<pf[access_index] << std::endl;
+    // std::cout << "below pf"<<std::endl;
+    // prefetch_line(ip,addr,prefetch_addr,FILL_L1,0);
+
+    if (access_index == 1023)
+    {
+        // std::cout << "inside access_index == 511"<<std::endl;
+        // std::cout << "offest_index"<<offsets_index<<std::endl;
+
+        // static std::vector<int> arm_n_count(offsets.size());
+
+        // arm_n_count[offsets_index] = 1;
+        arm_n_count.push_back(1);
+
+        // std::cout << "arm n count"<<std::endl;
+        n_total++;
+
+        int countSame = 0;
+
+        // Compare each entry in the vectors
+        for (size_t i = 0; i < rr.size(); ++i)
+        {
+            // std::cout << "inside access_index == 511  for loop 1"<<std::endl;
+            for (size_t j = 0; j < pf.size(); j++)
+            {
+                // std::cout << "inside access_index == 511  for loop 2"<<std::endl;
+                // std::cout << "check kro "<<std::endl;
+                if (rr[i] == pf[j])
+                {
+                    countSame++;
+                    // std::cout<<"same hua same hua" << std::endl;
+                }
+            }
+        }
+
+        reward.push_back(countSame);
+        // std::cout << "inside access_index == 511  reward"<<std::endl;
+        // access_index = 0;
+        // std::cout << "inside access_index == 511  access index"<<std::endl;
+        offsets_index = offsets_index + 1;
+        // std::cout << "inside access_index == 511  exited"<<std::endl;
+    }
+
+    access_index = (access_index + 1) % access_interval;
+    // std::cout << "offset index value "<< offsets_index << std::endl;
+    return;
+}
+
+void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+{
+
+#ifdef TRACE_DUMP
+    cout << "FILL:  CL Addr: " << (addr >> LOG2_BLOCK_SIZE) << "  Prefetch: " << unsigned(prefetch) << "  Cycle: " << current_core_cycle[cpu] << endl;
+#endif
+}
+
+void CACHE::l1d_prefetcher_final_stats()
+{
+    std::cout << "ucb ended" << endl;
+    std::cout << "----------------------------------------------------------------------------------------------"
+              << "-------------------------------------------------------------------------------------------------------"
+              << endl;
+
+    // Print all elements of the vector
+    std::cout << "Offsets elements: ";
+    // for (const auto &element : offsets)
+    // {
+    //     std::cout << element << " ";
+    // }
+    std::cout << std::endl;
+
+    std::cout << "Potential of Offsets elements: ";
+    for (const auto &element : potential)
+    {
+        std::cout << element << " ";
+    }
+    std::cout << std::endl;
+
+    std::cout << "rewards of Offsets elements: ";
+    for (const auto &element : reward)
+    {
+        std::cout << element << " ";
+    }
+    sanity++;
+    std::cout << "Printing Sanity" << sanity << std::endl;
+    std::cout << "offset_index value" << offsets_index << std::endl;
+    std::cout << "offset list size" << offsets.size() << std::endl;
+    std::cout << "----------------------------------------------------------------------------------------------"
+              << "-------------------------------------------------------------------------------------------------------"
+              << endl;
+}
