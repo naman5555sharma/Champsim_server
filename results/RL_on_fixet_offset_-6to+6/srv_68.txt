@@ -1,0 +1,68 @@
+
+*** ChampSim Multicore Out-of-Order Simulator ***
+
+Warmup Instructions: 50000000
+Simulation Instructions: 200000000
+Number of CPUs: 1
+LLC sets: 2048
+LLC ways: 16
+Off-chip DRAM Size: 4096 MB Channels: 1 Width: 64-bit Data Rate: 6400 MT/s
+CPU 0 runs traces/spec2k17/srv_68.champsimtrace.xz
+.xz
+BTB has LRU replacement policy
+ITLB has LRU replacement policy
+DTLB has LRU replacement policy
+STLB has LRU replacement policy
+L1I has LRU replacement policy
+L1D has LRU replacement policy
+Initialize SRRIP state for L2C
+Initialize DRRIP state for LLC
+Offset table: -6 -5 -4 -3 -2 -1 1 2 3 4 5 6 
+Offset table size: 12
+
+Printing Sanity: 1
+
+Round Robin Complete
+
+Offset reward: 351 379 266 623 1066 1894 1862 926 586 411 352 152 
+Offset reward size: 12
+
+Offset count: 1 1 1 1 1 1 1 1 1 1 1 1 
+Offset count size: 12
+
+Printing Sanity: 2
+n total: 12
+Writing in data1.txt 
+
+Writing done! 
+
+Heartbeat CPU 0 instructions: 10000002 cycles: 2799129 heartbeat IPC: 3.57254 cumulative IPC: 3.57254 (Simulation time: 0 hr 0 min 21 sec) 
+Heartbeat CPU 0 instructions: 20000003 cycles: 5595031 heartbeat IPC: 3.57666 cumulative IPC: 3.5746 (Simulation time: 0 hr 0 min 42 sec) 
+Heartbeat CPU 0 instructions: 30000003 cycles: 8384143 heartbeat IPC: 3.58537 cumulative IPC: 3.57818 (Simulation time: 0 hr 1 min 4 sec) 
+*** Reached end of trace for Core: 0 Repeating trace: traces/spec2k17/srv_68.champsimtrace.xz
+Heartbeat CPU 0 instructions: 40000001 cycles: 11168225 heartbeat IPC: 3.59185 cumulative IPC: 3.58159 (Simulation time: 0 hr 1 min 25 sec) 
+Heartbeat CPU 0 instructions: 50000000 cycles: 13959505 heartbeat IPC: 3.58259 cumulative IPC: 3.58179 (Simulation time: 0 hr 1 min 46 sec) 
+
+Warmup complete CPU 0 instructions: 50000004 cycles: 13959506 (Simulation time: 0 hr 1 min 46 sec) 
+
+Heartbeat CPU 0 instructions: 60000001 cycles: 36830484 heartbeat IPC: 0.437235 cumulative IPC: 0.437235 (Simulation time: 0 hr 2 min 20 sec) 
+*** Reached end of trace for Core: 0 Repeating trace: traces/spec2k17/srv_68.champsimtrace.xz
+Heartbeat CPU 0 instructions: 70000003 cycles: 58915076 heartbeat IPC: 0.452804 cumulative IPC: 0.444884 (Simulation time: 0 hr 2 min 53 sec) 
+Heartbeat CPU 0 instructions: 80000001 cycles: 81462893 heartbeat IPC: 0.443502 cumulative IPC: 0.444422 (Simulation time: 0 hr 3 min 26 sec) 
+Heartbeat CPU 0 instructions: 90000000 cycles: 104567574 heartbeat IPC: 0.432813 cumulative IPC: 0.441462 (Simulation time: 0 hr 4 min 0 sec) 
+*** Reached end of trace for Core: 0 Repeating trace: traces/spec2k17/srv_68.champsimtrace.xz
+Heartbeat CPU 0 instructions: 100000000 cycles: 126320194 heartbeat IPC: 0.459715 cumulative IPC: 0.444995 (Simulation time: 0 hr 4 min 33 sec) 
+Heartbeat CPU 0 instructions: 110000000 cycles: 149020409 heartbeat IPC: 0.440524 cumulative IPC: 0.444244 (Simulation time: 0 hr 5 min 7 sec) 
+Heartbeat CPU 0 instructions: 120000001 cycles: 171873813 heartbeat IPC: 0.437572 cumulative IPC: 0.443278 (Simulation time: 0 hr 5 min 40 sec) 
+*** Reached end of trace for Core: 0 Repeating trace: traces/spec2k17/srv_68.champsimtrace.xz
+Heartbeat CPU 0 instructions: 130000001 cycles: 193495709 heartbeat IPC: 0.462494 cumulative IPC: 0.445593 (Simulation time: 0 hr 6 min 13 sec) 
+Heartbeat CPU 0 instructions: 140000002 cycles: 216181270 heartbeat IPC: 0.440809 cumulative IPC: 0.445056 (Simulation time: 0 hr 6 min 46 sec) 
+Heartbeat CPU 0 instructions: 150000002 cycles: 238938985 heartbeat IPC: 0.439411 cumulative IPC: 0.444485 (Simulation time: 0 hr 7 min 21 sec) 
+*** Reached end of trace for Core: 0 Repeating trace: traces/spec2k17/srv_68.champsimtrace.xz
+Heartbeat CPU 0 instructions: 160000001 cycles: 260761719 heartbeat IPC: 0.458238 cumulative IPC: 0.445701 (Simulation time: 0 hr 7 min 54 sec) 
+Heartbeat CPU 0 instructions: 170000000 cycles: 283445792 heartbeat IPC: 0.440838 cumulative IPC: 0.445292 (Simulation time: 0 hr 8 min 28 sec) 
+Heartbeat CPU 0 instructions: 180000001 cycles: 306300597 heartbeat IPC: 0.437545 cumulative IPC: 0.444686 (Simulation time: 0 hr 9 min 2 sec) 
+*** Reached end of trace for Core: 0 Repeating trace: traces/spec2k17/srv_68.champsimtrace.xz
+Heartbeat CPU 0 instructions: 190000000 cycles: 328117561 heartbeat IPC: 0.458359 cumulative IPC: 0.445636 (Simulation time: 0 hr 9 min 35 sec) 
+Heartbeat CPU 0 instructions: 200000000 cycles: 350584132 heartbeat IPC: 0.445106 cumulative IPC: 0.4456 (Simulation time: 0 hr 10 min 9 sec) 
+Heartbeat CPU 0 instructions: 210000000 cycles: 373654209 heartbeat IPC: 0.433462 cumulative IPC: 0.444822 (Simulation time: 0 hr 10 min 42 sec) 

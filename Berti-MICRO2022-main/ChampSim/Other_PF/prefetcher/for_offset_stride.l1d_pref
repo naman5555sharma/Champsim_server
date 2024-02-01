@@ -7,11 +7,15 @@
 static uint64_t last_accessed_address = 0;
 
 // Define a map to store the frequency of each stride
-static std::map<int64_t, int64_t> stride_frequency;
+// static std::map<int64_t, int64_t> stride_frequency;
 
 void CACHE::l1d_prefetcher_initialize() 
 {
+    
     // Initialize last_accessed_address and stride_frequency if needed
+
+    std::cout << "Stride / Offset flow for load" << std::endl;
+
 }
 
 void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
@@ -28,8 +32,10 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
     // Update last_accessed_address with the current address
     last_accessed_address = addr;
 
+    std::cout << stride << std::endl;
+    
     // Update the frequency of the stride in the map
-    stride_frequency[stride]++;
+    // stride_frequency[stride]++;
 
     // Use stride and stride_frequency as needed
     // std::cout << "Stride: " << stride << " Frequency: " << stride_frequency[stride] << std::endl;
@@ -50,10 +56,10 @@ void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t s
 void CACHE::l1d_prefetcher_final_stats()
 {
     // Print the pairs from the stride_frequency map
-    std::cout << "Stride Frequency Stats:" << std::endl;
-    for (const auto& pair : stride_frequency) {
-        std::cout<<"Stride : " << pair.first << " ," << pair.second << std::endl;
-    }
+    // std::cout << "Stride Frequency Stats:" << std::endl;
+    // for (const auto& pair : stride_frequency) {
+    //     std::cout<<"Stride : " << pair.first << " ," << pair.second << std::endl;
+    // }
 
     // Implementation for other final_stats if needed
 }
