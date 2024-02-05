@@ -1,0 +1,127 @@
+#include "cache.h"
+#include <iostream>
+#include <map>
+#include <cassert> // Include the assert header
+
+// Define a static variable to store the last accessed address
+static uint64_t last_accessed_address = 0;
+
+static int first_access = 1;
+static int64_t stride1 = 0;
+static int64_t stride2 = 0;
+static int check_stride =1;
+static uint64_t ping_pong_count = 0;
+static uint64_t total_count =0;
+// Define a map to store the frequency of each stride
+// static std::map<int64_t, int64_t> stride_frequency;
+
+void CACHE::l1d_prefetcher_initialize() 
+{
+    
+    // Initialize last_accessed_address and stride_frequency if needed
+
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+{
+    // Assert that the address is non-negative
+    assert(addr >= 0);
+
+    if(first_access){
+        last_accessed_address = (addr >> LOG2_BLOCK_SIZE);
+        first_access =0;
+        return;
+    }
+
+    // Calculate the stride (difference between consecutive addresses)
+    
+    if (last_accessed_address != 0) {
+        if(check_stride == 1){
+            stride1 = (addr >> LOG2_BLOCK_SIZE) - (last_accessed_address);
+            // last_accessed_address = (addr >> LOG2_BLOCK_SIZE);
+            check_stride =0 ;
+        }
+
+        else 
+        {
+            stride2 = (addr >> LOG2_BLOCK_SIZE) - (last_accessed_address);
+            // last_accessed_address = (addr >> LOG2_BLOCK_SIZE);
+            check_stride =1;
+        }
+
+        // std::cout << "stride 1 = " <<stride1 << std::endl;
+
+        // std::cout << "stride 2 = " <<stride2 << std::endl;
+
+        int64_t diff_stride = stride1 + stride2;
+
+        last_accessed_address = (addr >> LOG2_BLOCK_SIZE);
+
+        // std::cout << "diff_stride = " <<diff_stride << std::endl;
+        // std::cout << "diff stride "<<diff_stride <<std::endl;
+        total_count++ ;
+        
+        if((stride1 > 1000 && stride2 <1000) || (stride1 < 1000 && stride2 > 1000)) {
+            if (diff_stride >= -63 && diff_stride <= 63){
+                ping_pong_count = ping_pong_count+1;
+            }
+        }
+
+        
+
+        // if (stride1 < 1000 && stride2)
+        // {
+        //     if (diff_stride >= -63 && diff_stride <= 63)
+        //     {
+                
+        //     }
+            
+        // }
+        
+
+    }
+    return;
+
+    // std::cout << "address in prefetcher "<< addr<<std::endl;
+    // Update last_accessed_address with the current address
+    // last_accessed_address = addr;
+
+
+    // std::cout << stride << std::endl;
+    
+    // Update the frequency of the stride in the map
+    // stride_frequency[stride]++;
+
+    // Use stride and stride_frequency as needed
+    // std::cout << "Stride: " << stride << " Frequency: " << stride_frequency[stride] << std::endl;
+
+    // Rest of your prefetcher_operate logic
+}
+
+void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+    // Implementation for notify_about_dtlb_eviction if needed
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+{
+    // Implementation for cache_fill if needed
+}
+
+void CACHE::l1d_prefetcher_final_stats()
+{
+    uint64_t total = total_count - ping_pong_count; 
+    std::cout << "total " << total << std::endl;
+    double percentage = (ping_pong_count/total)*100;
+    std::cout << "ping pong count "<< ping_pong_count << std::endl;
+    std::cout << "Total count "<< total_count << std::endl;
+    std::cout << "percentage of ping pong " << percentage << std::endl;
+
+    // Print the pairs from the stride_frequency map
+    // std::cout << "Stride Frequency Stats:" << std::endl;
+    // for (const auto& pair : stride_frequency) {
+    //     std::cout<<"Stride : " << pair.first << " ," << pair.second << std::endl;
+    // }
+
+    // Implementation for other final_stats if needed
+}
