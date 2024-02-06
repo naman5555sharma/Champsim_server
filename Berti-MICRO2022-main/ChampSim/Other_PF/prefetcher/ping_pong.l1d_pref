@@ -112,7 +112,7 @@ void CACHE::l1d_prefetcher_final_stats()
 {
     uint64_t total = total_count - ping_pong_count; 
     std::cout << "total " << total << std::endl;
-    double percentage = (ping_pong_count/total)*100;
+    double percentage = (static_cast<double> (ping_pong_count)/total)*100;
     std::cout << "ping pong count "<< ping_pong_count << std::endl;
     std::cout << "Total count "<< total_count << std::endl;
     std::cout << "percentage of ping pong " << percentage << std::endl;
