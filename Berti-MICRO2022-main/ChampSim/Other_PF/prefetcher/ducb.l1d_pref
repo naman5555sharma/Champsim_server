@@ -34,11 +34,11 @@ static uint64_t prev_addr;
 
 void CACHE::l1d_prefetcher_initialize()
 {
-    // static std::vector<int64_t> offsets;
-    for (int i = -63; i <= 63; ++i) {
-        if(i!=0)
-            offsets.push_back(i);
-    }
+    // static std::vector<int32_t> offsets;
+    // for (int i = -6; i <= 6; ++i) {
+    //     if(i!=0)
+    //         offsets.push_back(i);
+    // }
 }
 
 void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
@@ -49,67 +49,65 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
 
     uint64_t temp_addr;
 
+    if (trace_count == 0)
+    {
+        prev_addr = addr >> (LOG2_BLOCK_SIZE);
+        trace_count++;
+        return;
+    }
 
-
-    // if (trace_count == 0)
-    // {
-    //     prev_addr = addr >> (LOG2_BLOCK_SIZE);
-    //     trace_count++;
-    //     return;
-    // }
-
-    // if (trace_count != trace_total_count)
-    // {
-    //     temp_addr = addr >> (LOG2_BLOCK_SIZE);
-    //     // std::cout << "current address" << temp_addr <<std::endl;
-    //     int64_t stride;
-    //     stride = temp_addr - prev_addr;
-    //     // std::cout << "previous address" << prev_addr <<std::endl;
-    //     // std::cout << "stride" << stride <<std::endl;
-    //     prev_addr = temp_addr;
-    //     auto it = std::find(offsets.begin(), offsets.end(), stride);
-    //     if (it != offsets.end())
-    //     {
-    //         trace_count++;
-    //         return;
-    //     }
-    //     else
-    //     {
-    //         if(stride !=0)
-    //         offsets.push_back(stride);
-    //         trace_count++;
-    //         return;
-    //     }
-    // }
+    if (trace_count != trace_total_count)
+    {
+        temp_addr = addr >> (LOG2_BLOCK_SIZE);
+        // std::cout << "current address" << temp_addr <<std::endl;
+        int64_t stride;
+        stride = temp_addr - prev_addr;
+        // std::cout << "previous address" << prev_addr <<std::endl;
+        // std::cout << "stride" << stride <<std::endl;
+        prev_addr = temp_addr;
+        auto it = std::find(offsets.begin(), offsets.end(), stride);
+        if (it != offsets.end())
+        {
+            trace_count++;
+            return;
+        }
+        else
+        {
+            if(stride !=0)
+            offsets.push_back(stride);
+            trace_count++;
+            return;
+        }
+    }
     
-    // if (sanity == 0)
-    // {
-    //     // Print all elements of the vector
-    //     std::cout << "Offsets elements: ";
-    //     // for (const auto &element : offsets)
-    //     // {
-    //     //     std::cout << element << " ";
-    //     // }
-    //     std::cout << std::endl;
+    if (sanity == 0)
+    {
+        // Print all elements of the vector
+        std::cout << "Offsets elements: ";
+        // for (const auto &element : offsets)
+        // {
+        //     std::cout << element << " ";
+        // }
+        std::cout << std::endl;
 
-    //     std::cout << "Potential of Offsets elements: ";
-    //     for (const auto &element : potential)
-    //     {
-    //         std::cout << element << " ";
-    //     }
-    //     std::cout << std::endl;
+        std::cout << "Potential of Offsets elements: ";
+        for (const auto &element : potential)
+        {
+            std::cout << element << " ";
+        }
+        std::cout << std::endl;
 
-    //     std::cout << "rewards of Offsets elements: ";
-    //     for (const auto &element : reward)
-    //     {
-    //         std::cout << element << " ";
-    //     }
-    //     std::cout << std::endl;
+        std::cout << "rewards of Offsets elements: ";
+        for (const auto &element : reward)
+        {
+            std::cout << element << " ";
+        }
+        std::cout << std::endl;
 
-    //     sanity++;
-    //     std::cout << "Printing Sanity" << sanity << std::endl;
-    //     std::cout << "offset list size" << offsets.size() << std::endl;
-    // }
+        sanity++;
+        std::cout << "Printing Sanity" << sanity << std::endl;
+        std::cout << "offset list size" << offsets.size() << std::endl;
+    }
     /*-----------------------------------------------------------------------------------------------------------*/
     /*-----------------------------------------------------------------------------------------------------------*/
     /*-----------------------------------------------------------------------------------------------------------*/
@@ -119,30 +117,17 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
     // std::cout << "temp addr"<<std::endl;
     if (offsets_index >= offsets.size())
     {
-        
-        temp_addr = addr >> (LOG2_BLOCK_SIZE);
-        // std::cout << "current address" << temp_addr <<std::endl;
-        int64_t stride;
-        stride = temp_addr - prev_addr;
-
-        prev_addr = temp_addr;
         static size_t maxIndex =0;
         // std::cout << "inside main loop after first round" << std::endl;
         // std::cout << "Printing Sanity" << sanity <<std::endl;
-        // if (sanity == 0)
-        // {
-        //     int access_index = 0;
-        //     sanity++;
-        // }
-        
-        if (sanity == 0) // changed to 0 from 1
+        if (sanity == 1)
         {
             // Print all elements of the vector
             std::cout << "Offsets elements: ";
-            for (const auto &element : offsets)
-            {
-                std::cout << element << " ";
-            }
+            // for (const auto &element : offsets)
+            // {
+            //     std::cout << element << " ";
+            // }
             std::cout << std::endl;
 
             std::cout << "Potential of Offsets elements: ";
@@ -275,20 +260,11 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
         access_index = (access_index + 1) % access_interval;
         // std::cout << "vedant checkong out after inc  " << access_index << std::endl;
         if(best_arm!=0){
-            if(stride <1000 && stride >-1000){
             prefetch_line(ip, addr, prefetch_addr, FILL_L1, 0);
-            // prefetch_line(ip, addr, prefetch_addr+best_arm, FILL_L1, 0);
-            // prefetch_line(ip, addr, prefetch_addr+(2*best_arm), FILL_L1, 0);
-            // prefetch_line(ip, addr, prefetch_addr+(3*best_arm), FILL_L1, 0);
-        }
         }
         return; // forget to put in starting
-      
-        
     }
-/*-----------------------------------------------------------------------------------------------
---------------------------------------ROUND ROBIN PHASE------------------------------------------
-------------------------------------------------------------------------------------------------*/
+
     int64_t arm;
     // std::cout << "below arm"<<std::endl;
     // if (best_arm != 0)
@@ -407,4 +383,3 @@ void CACHE::l1d_prefetcher_final_stats()
               << "-------------------------------------------------------------------------------------------------------"
               << endl;
 }
-

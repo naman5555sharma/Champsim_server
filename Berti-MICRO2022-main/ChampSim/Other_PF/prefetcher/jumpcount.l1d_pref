@@ -1,0 +1,77 @@
+#include "cache.h"
+#include <map>
+#include <algorithm>
+#include <fstream>
+#include <iomanip>
+
+static long long int trace_count = 0;
+static uint64_t prev_addr;
+static int stride_check = 0;
+static int64_t stride1;
+static int64_t stride2;
+static int jump = 0;
+static int total_strides = 0;
+
+void CACHE::l1d_prefetcher_initialize()
+{
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+{
+    // Assert that the address is non-negative
+    assert(addr >= 0);
+    uint64_t temp_addr;
+
+    if (trace_count == 0)
+    {
+        prev_addr = addr >> (LOG2_BLOCK_SIZE);
+        trace_count++;
+        return;
+    }
+
+    if (trace_count != 0)
+    {
+
+        temp_addr = addr >> (LOG2_BLOCK_SIZE);
+        int64_t stride;
+        if (stride_check == 0)
+        {
+            stride1 = temp_addr - prev_addr;
+            prev_addr = temp_addr;
+            stride_check++;
+            return;
+        }
+        if (stride_check == 1)
+        {
+            stride2 = temp_addr - prev_addr;
+            prev_addr = temp_addr;
+            stride_check--;
+            if ((stride1 + stride2) == 0)
+                jump++;
+            total_strides++;
+            return;
+        }
+
+    }
+
+
+}
+
+void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+{
+
+#ifdef TRACE_DUMP
+    cout << "FILL:  CL Addr: " << (addr >> LOG2_BLOCK_SIZE) << "  Prefetch: " << unsigned(prefetch) << "  Cycle: " << current_core_cycle[cpu] << endl;
+#endif
+}
+
+void CACHE::l1d_prefetcher_final_stats()
+{
+    std::cout << "Number of jumps: "<< jump << std::endl;
+    std::cout << "Percentage of jumps: "  << jump/total_strides << std::endl;
+
+}

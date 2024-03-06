@@ -39,7 +39,10 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
         if(check_stride == 1){
             stride1 = (addr >> LOG2_BLOCK_SIZE) - (last_accessed_address);
             // last_accessed_address = (addr >> LOG2_BLOCK_SIZE);
-            check_stride =0 ;
+            check_stride = 0 ;
+            if(stride1 < -63 || stride1 >63 ){
+                total_count++;
+            }
         }
 
         else 
@@ -47,7 +50,11 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
             stride2 = (addr >> LOG2_BLOCK_SIZE) - (last_accessed_address);
             // last_accessed_address = (addr >> LOG2_BLOCK_SIZE);
             check_stride =1;
+            if(stride2 < -63 || stride2 >63 ){
+                total_count++;
+            }
         }
+
 
         // std::cout << "stride 1 = " <<stride1 << std::endl;
 
@@ -59,10 +66,17 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
 
         // std::cout << "diff_stride = " <<diff_stride << std::endl;
         // std::cout << "diff stride "<<diff_stride <<std::endl;
-        total_count++ ;
+        // total_count++ ;
+
+
         
-        if((stride1 > 1000 && stride2 <1000) || (stride1 < 1000 && stride2 > 1000)) {
-            if (diff_stride >= -63 && diff_stride <= 63){
+        
+
+        if((stride1 > 63 && stride2 < -63) || (stride1 < -63 && stride2 > 63)) {
+            // total_count++;
+            // if (diff_stride >= -63 && diff_stride <= 63)
+            if (diff_stride == 0)
+            {
                 ping_pong_count = ping_pong_count+1;
             }
         }
@@ -110,9 +124,9 @@ void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t s
 
 void CACHE::l1d_prefetcher_final_stats()
 {
-    uint64_t total = total_count - ping_pong_count; 
-    std::cout << "total " << total << std::endl;
-    double percentage = (static_cast<double> (ping_pong_count)/total)*100;
+    // uint64_t total = total_count - ping_pong_count; 
+    // std::cout << "total " << total << std::endl;
+    double percentage = (static_cast<double>(ping_pong_count)/total_count)*100;
     std::cout << "ping pong count "<< ping_pong_count << std::endl;
     std::cout << "Total count "<< total_count << std::endl;
     std::cout << "percentage of ping pong " << percentage << std::endl;

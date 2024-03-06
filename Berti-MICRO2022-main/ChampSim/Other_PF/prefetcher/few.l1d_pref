@@ -1,0 +1,309 @@
+#include "cache.h"
+#include <map>
+#include <algorithm>
+#include <fstream>
+#include <iomanip>
+
+#define access_interval 512
+#define trace_total_count 5000
+
+static long long int trace_count = 0;
+static uint32_t access_index = 0;
+static uint64_t offsets_index = 0;
+static int sanity = 0;
+static uint64_t n_total = 0;
+static int potential_count = 1;
+static int c = 6;
+static uint64_t prev_addr;
+static int64_t best_arm = 0;
+static int maxIndex = 0;
+static int stride_check = 0;
+static int64_t stride1;
+static int64_t stride2;
+static int jump = 0;
+static int total_strides = 0;
+
+static std::vector<int64_t> offsets;             // offset table
+static std::vector<int> arm_n_count;             // offset count
+static std::vector<int32_t> reward;              // offset reward
+static std::vector<double> offset_bonus;         // offset bonus
+static std::vector<double> potential;            // offset potential
+static std::vector<int64_t> rr(access_interval); // RR Table
+static std::vector<int64_t> pf(access_interval); // PF Table
+
+void CACHE::l1d_prefetcher_initialize()
+{
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+{
+    // Assert that the address is non-negative
+    assert(addr >= 0);
+    uint64_t temp_addr;
+
+    if (trace_count == 0)
+    {
+        prev_addr = addr >> (LOG2_BLOCK_SIZE);
+        trace_count++;
+        return;
+    }
+
+    if (trace_count != 0)
+    {
+
+        temp_addr = addr >> (LOG2_BLOCK_SIZE);
+        int64_t stride;
+        if (stride_check == 0)
+        {
+            stride1 = temp_addr - prev_addr;
+            prev_addr = temp_addr;
+            stride_check++;
+            return;
+        }
+        if (stride_check == 1)
+        {
+            stride2 = temp_addr - prev_addr;
+            prev_addr = temp_addr;
+            stride_check--;
+            if ((stride1 + stride2) == 0)
+                jump++;
+            total_strides++;
+            return;
+        }
+
+        // temp_addr = addr >> (LOG2_BLOCK_SIZE);
+        // // std::cout << "current address" << temp_addr <<std::endl;
+
+        // // std::cout << "previous address" << prev_addr <<std::endl;
+        // // std::cout << "stride" << stride <<std::endl;
+        // prev_addr = temp_addr;
+        // auto it = std::find(offsets.begin(), offsets.end(), stride);
+        // if (it != offsets.end())
+        // {
+        //     trace_count++;
+        //     return;
+        // }
+        // else
+        // {
+        //     if (stride != 0)
+        //         offsets.push_back(stride);
+        //     trace_count++;
+        //     return;
+        // }
+    }
+
+    // if (sanity == 0)
+    // {
+    //     // Print all elements of the vector
+    //     std::cout << "Offset table: ";
+    //     for (const auto &element : offsets)
+    //     {
+    //         std::cout << element << " ";
+    //     }
+    //     std::cout << std::endl;
+    //     std::cout << "Offset table size: " << offsets.size() << std::endl;
+    //     std::cout << std::endl;
+
+    //     sanity++;
+    //     std::cout << "Printing Sanity: " << sanity << std::endl;
+    //     std::cout << std::endl;
+    // }
+
+    // temp_addr = addr >> LOG2_BLOCK_SIZE;
+
+    // if (offsets_index >= offsets.size())
+    // {
+
+    //     if (sanity == 1)
+    //     {
+    //         std::cout << "Round Robin Complete" << std::endl;
+    //         std::cout << std::endl;
+
+    //         std::cout << "Offset reward: ";
+    //         for (const auto &element : reward)
+    //         {
+    //             std::cout << element << " ";
+    //         }
+    //         std::cout << std::endl;
+    //         std::cout << "Offset reward size: " << reward.size() << std::endl;
+    //         std::cout << std::endl;
+
+    //         std::cout << "Offset count: ";
+    //         for (const auto &element : arm_n_count)
+    //         {
+    //             std::cout << element << " ";
+    //         }
+    //         std::cout << std::endl;
+    //         std::cout << "Offset count size: " << arm_n_count.size() << std::endl;
+    //         std::cout << std::endl;
+
+    //         sanity++;
+    //         std::cout << "Printing Sanity: " << sanity << std::endl;
+    //         std::cout << "n total: " << n_total << std::endl;
+    //         int access_index = 0;
+
+    //         // Writing in data1.txt
+    //         std::cout << "Writing in data1.txt \n"
+    //                   << std::endl;
+    //         std::ofstream outputFile("data1");
+    //         if (!outputFile.is_open())
+    //         {
+    //             std::cerr << "Error opening file 'data1' for writing." << std::endl;
+    //             return;
+    //         }
+
+    //         // Assuming both vectors are of the same size
+    //         for (size_t i = 0; i < offsets.size(); ++i)
+    //         {
+    //             outputFile << offsets[i] << " " << reward[i] << std::endl;
+    //         }
+
+    //         std::cout << "Writing done! \n"
+    //                   << std::endl;
+    //         outputFile.close();
+    //     }
+
+    //     // int reward_index = 0;
+    //     // int32_t offset_reward = reward[reward_index];
+
+    //     int n_arms = 12;
+    //     if (potential_count == 1)
+    //     {
+
+    //         double bonus = 0;
+    //         for (int i = 0; i < n_arms; ++i)
+    //         {
+    //             bonus = c * sqrt(2 * log(n_total) / (arm_n_count[i]));
+    //             offset_bonus.push_back(bonus);
+    //             potential.push_back(reward[i] + bonus);
+    //         }
+
+    //         // Find the maxIndex
+    //         auto maxElementIterator = std::max_element(potential.begin(), potential.end());
+    //         maxIndex = std::distance(potential.begin(), maxElementIterator);
+    //         arm_n_count[maxIndex] = arm_n_count[maxIndex] + 1;
+    //         n_total = n_total + 1;
+    //         best_arm = offsets[maxIndex];
+
+    //         // std::cout << best_arm << "  " << reward[maxIndex] << "  " << offset_bonus[maxIndex] << "   " << potential[maxIndex] << "    " << arm_n_count[maxIndex] << std::endl;
+
+    //         potential_count = 0;
+    //     }
+
+    //     if (potential_count == 2)
+    //     {
+
+    //         double bonus = 0;
+    //         for (int i = 0; i < n_arms; ++i)
+    //         {
+
+    //             bonus = c * sqrt(2 * log(n_total) / (arm_n_count[i]));
+    //             offset_bonus[i] = bonus;
+    //             potential[i] = reward[i] + bonus;
+    //         }
+
+    //         // Find the maxIndex
+    //         auto maxElementIterator = std::max_element(potential.begin(), potential.end());
+    //         maxIndex = std::distance(potential.begin(), maxElementIterator);
+
+    //         best_arm = offsets[maxIndex];
+    //         arm_n_count[maxIndex] = arm_n_count[maxIndex] + 1;
+    //         n_total = n_total + 1;
+
+    //         // std::cout << best_arm << "  " << reward[maxIndex] << "  " << offset_bonus[maxIndex] << "   " << potential[maxIndex] << "    " << arm_n_count[maxIndex] << std::endl;
+
+    //         potential_count = 0;
+    //     }
+
+    //     rr[access_index] = temp_addr;
+    //     uint64_t prefetch_addr = temp_addr + best_arm;
+
+    //     pf[access_index] = prefetch_addr;
+    //     prefetch_addr = prefetch_addr << LOG2_BLOCK_SIZE;
+
+    //     if (access_index == 511)
+    //     {
+    //         int countSame = 0;
+
+    //         for (size_t i = 0; i < access_interval; i++)
+    //         {
+
+    //             for (size_t j = 0; j < access_interval; j++)
+    //             {
+
+    //                 if (pf[i] == rr[j])
+    //                 {
+    //                     countSame++;
+    //                 }
+    //             }
+    //         }
+
+    //         reward[maxIndex] = (reward[maxIndex] * (arm_n_count[maxIndex] - 1) + countSame) / arm_n_count[maxIndex];
+    //         // std::cout << "New Reward: " << reward[maxIndex] << std::endl;
+    //         potential_count = 2;
+    //     }
+
+    //     access_index = (access_index + 1) % access_interval;
+
+    //     if (best_arm != 0)
+    //     {
+    //         prefetch_line(ip, addr, prefetch_addr, FILL_L1, 0);
+    //     }
+    //     return;
+    // }
+
+    // // Round Robin phase
+    // int64_t arm;
+
+    // rr[access_index] = temp_addr;
+    // arm = offsets[offsets_index];
+    // uint64_t prefetch_addr = temp_addr + arm;
+    // pf[access_index] = prefetch_addr;
+    // prefetch_addr = prefetch_addr << LOG2_BLOCK_SIZE;
+
+    // if (access_index == 511)
+    // {
+
+    //     int countSame = 0;
+    //     n_total++;
+    //     arm_n_count.push_back(1);
+
+    //     // Compare each entry in the vectors
+    //     for (size_t i = 0; i < pf.size(); i++)
+    //     {
+    //         for (size_t j = 0; j < rr.size(); j++)
+    //         {
+    //             if (pf[i] == rr[j])
+    //             {
+    //                 countSame++;
+    //             }
+    //         }
+    //     }
+
+    //     reward.push_back(countSame);
+    //     offsets_index = offsets_index + 1;
+    // }
+
+    // access_index = (access_index + 1) % access_interval;
+
+    // return;
+}
+
+void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+{
+
+#ifdef TRACE_DUMP
+    cout << "FILL:  CL Addr: " << (addr >> LOG2_BLOCK_SIZE) << "  Prefetch: " << unsigned(prefetch) << "  Cycle: " << current_core_cycle[cpu] << endl;
+#endif
+}
+
+void CACHE::l1d_prefetcher_final_stats()
+{
+    std::cout << "Number of jumps: "<< jump << std::endl;
+    std::cout << "Percentage of jumps: "  << jump/total_strides << std::endl;
+
+}

@@ -24,15 +24,17 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
     assert(addr >= 0);
 
     // Calculate the stride (difference between consecutive addresses)
-    uint64_t stride = 0;
+    int64_t stride = 0;
     if (last_accessed_address != 0) {
         stride = (addr >> LOG2_BLOCK_SIZE) - (last_accessed_address>>LOG2_BLOCK_SIZE);
     }
 
+    std::cout << "address in prefetcher "<< addr<<std::endl;
     // Update last_accessed_address with the current address
     last_accessed_address = addr;
 
-    std::cout << stride << std::endl;
+
+    std::cout << "cuurent addr "<<addr <<" stride " <<stride << "cache hit "<< (cache_hit?1:0 )<< std::endl; 
     
     // Update the frequency of the stride in the map
     // stride_frequency[stride]++;
