@@ -1,87 +1,49 @@
 #include "cache.h"
-#include <unordered_map>
-#include <tuple>
-#include <iostream>
 
 #include <map>
 
-static int64_t stride;
-static uint64_t prev_addr;
+//#define TRACE_DUMP		//Neelu: Addition Trace Dump prints
 
-static uint64_t hit_count = 0;
+//map<uint64_t, uint64_t> last_accessed_address;	//Neelu: Stores last accessed address per IP.  
 
-static uint64_t total_count = 0;
-static int flag = 0;
-static std::unordered_map<std::tuple<int, int, int>, int> differenceCounts;
-
-void CACHE::l1d_prefetcher_initialize()
+void CACHE::l1d_prefetcher_initialize() 
 {
+
 }
 
 void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
 {
 
-    assert(addr);
-    static uint64_t prev_addr1 = 0;
-    static uint64_t prev_addr2 = 0;
-    static uint64_t prev_addr3 = 0;
+/*	#ifdef TRACE_DUMP
+	cout << "DEMAND:  IP: " << ip << "  CL Addr: " << (addr >> LOG2_BLOCK_SIZE) << "  Hit: " << unsigned(cache_hit) << "  Cycle: " << current_core_cycle[cpu] <<endl;
+	#endif
 
-    if (prev_addr1 != 0 && prev_addr2 != 0 && prev_addr3 != 0)
-    {
-        // Calculate differences
-        std::tuple<int, int, int> diff = std::make_tuple(prev_addr2 - prev_addr1, prev_addr3 - prev_addr2, addr - prev_addr3);
-
-        // Check if the difference group exists in the map
-        auto it = differenceCounts.find(diff);
-        if (it != differenceCounts.end())
-        {
-            // Increment count for the difference group
-            it->second++;
-        }
-        else
-        {
-            // Insert the difference group into the map with a count of 1
-            differenceCounts[diff] = 1;
-        }
-
-        prev_addr1 = prev_addr2;
-        prev_addr2 = prev_addr3;
-        prev_addr3 = addr;
-        return;
-    }
-    else if (prev_addr1 == 0)
-    {
-        prev_addr1 = addr >> LOG2_BLOCK_SIZE;
-        return;
-    }
-    else if (prev_addr2 == 0)
-    {
-        prev_addr2 = addr >> LOG2_BLOCK_SIZE;
-        return;
-    }
-    else
-    {
-        prev_addr3 = addr >> LOG2_BLOCK_SIZE;
-        return;
-    }
+	if(last_accessed_address.find(ip) != last_accessed_address.end())
+	{
+		#ifdef TRACE_DUMP
+		cout << "IP: "<< ip << "  Stride: " << ((addr >> LOG2_BLOCK_SIZE) - last_accessed_address[ip]) << endl;
+		#endif
+	}
+	
+	last_accessed_address[ip] = addr; 
+*/
 }
 
 void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
 {
+
 }
 
 void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
 {
+
+	#ifdef TRACE_DUMP
+	cout << "FILL:  CL Addr: " << (addr >> LOG2_BLOCK_SIZE) << "  Prefetch: " << unsigned(prefetch) << "  Cycle: " << current_core_cycle[cpu] <<endl;
+	#endif
+
 }
 
 void CACHE::l1d_prefetcher_final_stats()
 {
-    std::cout << "Difference Counts: " << std::endl;
-    for (const auto&  pair : differenceCounts)
-    {
-        std::cout << "(" << std::get<0>(pair.first) << ", " << std::get<1>(pair.first) << ", " << std::get<2>(pair.first) << "): " << pair.second << std::endl;
-        std::cout << std::endl;
-    }
 
- 
 }
