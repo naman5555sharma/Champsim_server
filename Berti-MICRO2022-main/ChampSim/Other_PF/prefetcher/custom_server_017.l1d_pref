@@ -1,44 +1,52 @@
 #include "cache.h"
-#include <unordered_map>
-#include <queue>
-#include <vector>
-#include <cstdint>
-#include <map>
-#include <iostream>
-#include <cassert>
 
-using namespace std;
-
-static int64_t offset;
-static uint64_t prev_addr;
-
+// naman
+static std::map<int64_t, int64_t> stride_frequency;
+static int64_t delta;
+static int64_t prev_addr;
+static uint64_t total_miss_count = 0;
 static uint64_t hit_count = 0;
 static uint64_t total_count = 0;
-static int flag = 0;
-static uint64_t total_miss_count = 0;
-
-static std::map<int64_t, int64_t> stride_frequency;
+// naman
 
 void CACHE::l1d_prefetcher_initialize()
 {
-    cout << "Trace_analysis" << endl;
+    cout << "CPU " << cpu << " L1D next line prefetcher" << endl;
 }
 
 void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
 {
-    assert(addr);
+    uint64_t pf_addr = ((addr >> LOG2_BLOCK_SIZE) + 1) << LOG2_BLOCK_SIZE;
+    uint64_t pf_addr1 = ((addr >> LOG2_BLOCK_SIZE) - 1) << LOG2_BLOCK_SIZE;
+    uint64_t pf_addr2 = ((addr >> LOG2_BLOCK_SIZE) + 2) << LOG2_BLOCK_SIZE;
+    uint64_t pf_addr3 = ((addr >> LOG2_BLOCK_SIZE) - 2) << LOG2_BLOCK_SIZE;
+
+    // DP(if (warmup_complete[cpu]) {
+    // cout << "[" << NAME << "] " << __func__ << hex << " base_cl: " << (addr>>LOG2_BLOCK_SIZE);
+    // cout << " pf_cl: " << (pf_addr>>LOG2_BLOCK_SIZE) << " ip: " << ip << " cache_hit: " << +cache_hit << " type: " << +type << endl; });
+
+    prefetch_line(ip, addr, pf_addr, FILL_L1, 0);
+    prefetch_line(ip, addr, pf_addr1, FILL_L1, 0);
+    prefetch_line(ip, addr, pf_addr2, FILL_L1, 0);
+    prefetch_line(ip, addr, pf_addr3, FILL_L1, 0);
+
+    // naman
     uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
-    offset = block_addr - prev_addr;
-
-
-    stride_frequency[offset]++;
-    total_miss_count++;
-
+    delta = block_addr - prev_addr;
     prev_addr = block_addr;
-}
-
-void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
-{
+    if (!cache_hit)
+    {
+        stride_frequency[delta]++;
+        total_miss_count++;
+    }
+    if (cache_hit)
+    {
+        hit_count++;
+        total_count++;
+    }
+    else
+        total_count++;
+    // naman
 }
 
 void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
@@ -47,17 +55,18 @@ void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t s
 
 void CACHE::l1d_prefetcher_final_stats()
 {
+    // naman
     cout << "-------------------------------------Main Data---------------------------------------" << endl;
+    // cout << "CPU " << cpu << " L1D next line prefetcher final stats" << endl;
     std::cout << "Number of hits: " << hit_count << std::endl;
     std::cout << "Number of total accesses: " << total_count << std::endl;
     std::cout << "Percentage of hit: " << (static_cast<double>(hit_count) / total_count) * 100 << std::endl;
     cout << endl
          << endl;
-
-    cout << "Total miss Count" << total_miss_count << endl;
+    cout << "Total miss Count: " << total_miss_count << endl;
 
     // Print the pairs from the stride_frequency map
-    std::cout << "Stride Frequency Stats:" << std::endl;
+    std::cout << "Delta Frequency Stats on load miss:" << std::endl;
 
     // Use a min-heap to find the top 100 frequencies
     priority_queue<pair<int64_t, int64_t>, vector<pair<int64_t, int64_t>>, greater<pair<int64_t, int64_t>>> min_heap;
@@ -83,17 +92,6 @@ void CACHE::l1d_prefetcher_final_stats()
     {
         std::cout << "Delta: " << it->second << ", Frequency: " << static_cast<double>(it->first) / total_miss_count << std::endl;
     }
-    // uint64_t key = 0;
-    // auto it = stride_frequency.find(key);
-
-    // if (it != stride_frequency.end())
-    // {
-    //     std::cout << "Frequency of element " << key << " is " << it->second << std::endl;
-    // }
-    // else
-    // {
-    //     std::cout << "Element " << key << " not found in the map." << std::endl;
-    // }
-
     cout << "-------------------------------------Main Data---------------------------------------" << endl;
+    // naman
 }

@@ -8,7 +8,7 @@
 #define trace_total_count 5000
 
 static long long int trace_count = 0;
-static int potential_count =1;
+static int potential_count = 1;
 static std::vector<int64_t> offsets;
 // for (int i = -10000; i <= 10000; ++i)
 // {
@@ -35,8 +35,9 @@ static uint64_t prev_addr;
 void CACHE::l1d_prefetcher_initialize()
 {
     // static std::vector<int64_t> offsets;
-    for (int i = -63; i <= 63; ++i) {
-        if(i!=0)
+    for (int i = -63; i <= 63; ++i)
+    {
+        if (i != 0)
             offsets.push_back(i);
     }
 }
@@ -48,8 +49,6 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
     assert(addr >= 0);
 
     uint64_t temp_addr;
-
-
 
     // if (trace_count == 0)
     // {
@@ -81,7 +80,7 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
     //         return;
     //     }
     // }
-    
+
     // if (sanity == 0)
     // {
     //     // Print all elements of the vector
@@ -119,14 +118,14 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
     // std::cout << "temp addr"<<std::endl;
     if (offsets_index >= offsets.size())
     {
-        
+
         temp_addr = addr >> (LOG2_BLOCK_SIZE);
         // std::cout << "current address" << temp_addr <<std::endl;
         int64_t stride;
         stride = temp_addr - prev_addr;
 
         prev_addr = temp_addr;
-        static size_t maxIndex =0;
+        static size_t maxIndex = 0;
         // std::cout << "inside main loop after first round" << std::endl;
         // std::cout << "Printing Sanity" << sanity <<std::endl;
         // if (sanity == 0)
@@ -134,7 +133,7 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
         //     int access_index = 0;
         //     sanity++;
         // }
-        
+
         if (sanity == 0) // changed to 0 from 1
         {
             // Print all elements of the vector
@@ -175,63 +174,58 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
         // std::cout<<"n_arms = "<< n_arms <<std::endl;
         // int n_total = std::accumulate(arm_counts.begin(), arm_counts.end(), 0);
         // std::vector<double> ucb_values(n_arms);
-        if(potential_count==1){
-        for (int i = 0; i < n_arms; ++i)
+        if (potential_count == 1)
         {
-            // std::cout<<"no error till now"<<std::endl;
-            double bonus = c * sqrt(2 * log(n_total) / (arm_n_count[i]));
-            potential.push_back(reward[i] + bonus);
-            // std::cout << "potential values "<<potential[i];
+            for (int i = 0; i < n_arms; ++i)
+            {
+                // std::cout<<"no error till now"<<std::endl;
+                double bonus = c * sqrt(2 * log(n_total) / (arm_n_count[i]));
+                potential.push_back(reward[i] + bonus);
+                // std::cout << "potential values "<<potential[i];
+            }
+
+            n_total++;
+            potential_count = 0;
+            // Find the iterator to the maximum element
+            auto maxElementIterator = std::max_element(potential.begin(), potential.end());
+
+            // Find the index of the maximum element
+            maxIndex = std::distance(potential.begin(), maxElementIterator);
+            arm_n_count[maxIndex]++;
+            // std::cout << "max index arm n count" << arm_n_count[maxIndex] << std::endl;
+            best_arm = offsets[maxIndex];
         }
 
-
-        n_total++;
-        potential_count= 0;
-                // Find the iterator to the maximum element
-        auto maxElementIterator = std::max_element(potential.begin(), potential.end());
-
-        // Find the index of the maximum element
-        maxIndex = std::distance(potential.begin(), maxElementIterator);
-        arm_n_count[maxIndex]++;
-        // std::cout << "max index arm n count" << arm_n_count[maxIndex] << std::endl;
-        best_arm = offsets[maxIndex];
-        }
-
-        
-        if(potential_count == 2){
-        for (int i = 0; i < n_arms; ++i)
+        if (potential_count == 2)
         {
-            // std::cout<<"no error till now"<<std::endl;
-            double bonus = c * sqrt(2* log(n_total) / (arm_n_count[i]));
-            potential[i] = (reward[i] + bonus);
-            // std::cout << "potential values "<<potential[i];
+            for (int i = 0; i < n_arms; ++i)
+            {
+                // std::cout<<"no error till now"<<std::endl;
+                double bonus = c * sqrt(2 * log(n_total) / (arm_n_count[i]));
+                potential[i] = (reward[i] + bonus);
+                // std::cout << "potential values "<<potential[i];
+            }
+
+            n_total++;
+            potential_count = 0;
+            // Find the iterator to the maximum element
+            auto maxElementIterator = std::max_element(potential.begin(), potential.end());
+
+            // Find the index of the maximum element
+            size_t maxIndex = std::distance(potential.begin(), maxElementIterator);
+            arm_n_count[maxIndex]++;
+            // std::cout << "max index arm n count" << arm_n_count[maxIndex] << std::endl;
+            best_arm = offsets[maxIndex];
         }
-
-
-        n_total++;
-        potential_count= 0;
-                // Find the iterator to the maximum element
-        auto maxElementIterator = std::max_element(potential.begin(), potential.end());
-
-        // Find the index of the maximum element
-        size_t maxIndex = std::distance(potential.begin(), maxElementIterator);
-        arm_n_count[maxIndex]++;
-        // std::cout << "max index arm n count" << arm_n_count[maxIndex] << std::endl;
-        best_arm = offsets[maxIndex];
-        }
-
 
         // std::cout<<"no error till now"<<std::endl;
-        
+
         // std::cout << "max index" << maxIndex << std::endl;
-
-
 
         // std::cout << "n_total" << n_total << std::endl;
         rr[access_index] = temp_addr;
 
         // std::cout<<" best_arm " << offsets[maxIndex +1] <<std::endl;
-
 
         // std::cout << "best arm" << offsets[maxIndex] << std::endl;
         // std::cout << "access Index " << access_index << std::endl;
@@ -266,29 +260,31 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
                 }
             }
             // std::cout << "Selected Offset " << best_arm << endl;
-            reward[maxIndex] = (reward[maxIndex]*(arm_n_count[maxIndex]-1)  + countSame) / arm_n_count[maxIndex];
+            reward[maxIndex] = (reward[maxIndex] * (arm_n_count[maxIndex] - 1) + countSame) / arm_n_count[maxIndex];
             // std::cout << "Selected Offset " << best_arm << endl;
-            access_index =0;
-            potential_count =2;
+            access_index = 0;
+            potential_count = 2;
         }
         // std::cout << "vedant checkong out " << access_index << std::endl;
         access_index = (access_index + 1) % access_interval;
         // std::cout << "vedant checkong out after inc  " << access_index << std::endl;
-        if(best_arm!=0){
-            if(stride <1000 && stride >-1000){
-            prefetch_line(ip, addr, prefetch_addr, FILL_L1, 0);
-            // prefetch_line(ip, addr, prefetch_addr+best_arm, FILL_L1, 0);
-            // prefetch_line(ip, addr, prefetch_addr+(2*best_arm), FILL_L1, 0);
-            // prefetch_line(ip, addr, prefetch_addr+(3*best_arm), FILL_L1, 0);
-        }
+        if (best_arm != 0)
+        {
+            if (stride < 1000 && stride > -1000)
+            {
+                prefetch_line(ip, addr, prefetch_addr, FILL_L1, 0);
+                // Add delay element = 60 cycles
+
+                prefetch_line(ip, addr, prefetch_addr + best_arm, FILL_L1, 0);
+                prefetch_line(ip, addr, prefetch_addr + (2 * best_arm), FILL_L1, 0);
+                prefetch_line(ip, addr, prefetch_addr + (3 * best_arm), FILL_L1, 0);
+            }
         }
         return; // forget to put in starting
-      
-        
     }
-/*-----------------------------------------------------------------------------------------------
---------------------------------------ROUND ROBIN PHASE------------------------------------------
-------------------------------------------------------------------------------------------------*/
+    /*-----------------------------------------------------------------------------------------------
+    --------------------------------------ROUND ROBIN PHASE------------------------------------------
+    ------------------------------------------------------------------------------------------------*/
     int64_t arm;
     // std::cout << "below arm"<<std::endl;
     // if (best_arm != 0)

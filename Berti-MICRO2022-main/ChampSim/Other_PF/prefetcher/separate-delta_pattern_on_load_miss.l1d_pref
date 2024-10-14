@@ -1,0 +1,86 @@
+
+
+#include "cache.h"
+#include <map>
+#include <iostream>
+#include <queue>
+#include <vector>
+
+using namespace std;
+
+static std::map<int64_t, int64_t> delta_frequency_User;
+static std::map<int64_t, int64_t> delta_frequency_Kernel;
+static uint64_t user_prev_block_addr = 0;
+static uint64_t kernel_prev_block_addr = 0;
+static uint64_t total_count = 0;
+
+void CACHE::l1d_prefetcher_initialize()
+{
+    cout << "separate-delta_pattern_on_load_miss"<< endl;
+    cout << "In these we try to find the delta frequency in user access and kerenel access"<< endl;
+
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+{
+    if (!cache_hit)
+    {
+
+        total_count++;
+        int64_t offset;
+        if (addr > 0x800000000000) // Assuming this is for kernel addresses
+        {
+            offset = (addr >> LOG2_BLOCK_SIZE) - kernel_prev_block_addr;
+            kernel_prev_block_addr = (addr >> LOG2_BLOCK_SIZE);
+            delta_frequency_Kernel[offset]++;
+        }
+        else
+        {
+            offset = (addr >> LOG2_BLOCK_SIZE) - user_prev_block_addr;
+            user_prev_block_addr = (addr >> LOG2_BLOCK_SIZE);
+            delta_frequency_User[offset]++;
+        }
+    }
+}
+void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void print_top_deltas(const std::map<int64_t, int64_t> &delta_frequency, const std::string &title)
+{
+    priority_queue<pair<int64_t, int64_t>, vector<pair<int64_t, int64_t>>, greater<pair<int64_t, int64_t>>> min_heap;
+    for (const auto &pair : delta_frequency)
+    {
+        min_heap.push(make_pair(pair.second, pair.first));
+        if (min_heap.size() > 100)
+        {
+            min_heap.pop();
+        }
+    }
+
+    vector<pair<int64_t, int64_t>> top100;
+    while (!min_heap.empty())
+    {
+        top100.push_back(min_heap.top());
+        min_heap.pop();
+    }
+
+    std::cout << title << std::endl;
+    for (auto it = top100.rbegin(); it != top100.rend(); ++it)
+    {
+        std::cout << "Delta: " << it->second << ", Frequency: " << static_cast<double>(it->first) / total_count << std::endl;
+    }
+}
+
+void CACHE::l1d_prefetcher_final_stats()
+{
+    cout << "----------------------- Kernel Data -----------------------" << endl;
+    print_top_deltas(delta_frequency_Kernel, "Top 100 Kernel Delta Frequencies:");
+
+    cout << "----------------------- User Data -----------------------" << endl;
+    print_top_deltas(delta_frequency_User, "Top 100 User Delta Frequencies:");
+}

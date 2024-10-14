@@ -24,12 +24,12 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
 {
     // cout << "address in prefetcher vr "<< hex <<addr<<endl;
     // cout << "address in prefetcher physical "<< hex <<full_physical_address<<endl;
-        // Setting delta values -2,2,1,-16,-32,-1
-    delta1 = -2,
-    delta2 = 2,
-    delta3 = 1,
-    delta4 = -16,
-    delta5 = -32;
+        // Setting delta values 2,1,-1,0,-2,3
+    delta1 = 2,
+    delta2 = 1,
+    delta3 = -1,
+    delta4 = -2,
+    delta5 = 3;
     uint64_t pf_addr = ((addr >> LOG2_BLOCK_SIZE) + delta1) << LOG2_BLOCK_SIZE;
     uint64_t pf_addr1 = ((addr >> LOG2_BLOCK_SIZE) + delta2) << LOG2_BLOCK_SIZE;
     uint64_t pf_addr2 = ((addr >> LOG2_BLOCK_SIZE) + delta3) << LOG2_BLOCK_SIZE;
@@ -41,10 +41,10 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
     // cout << " pf_cl: " << (pf_addr>>LOG2_BLOCK_SIZE) << " ip: " << ip << " cache_hit: " << +cache_hit << " type: " << +type << endl; });
     // if(!cache_hit){
     prefetch_line(ip, addr, pf_addr, FILL_L1, 0);
-    prefetch_line(ip, addr, pf_addr1, FILL_L1, 0);
-    prefetch_line(ip, addr, pf_addr2, FILL_L1, 0);
-    prefetch_line(ip, addr, pf_addr3, FILL_L1, 0);
-    prefetch_line(ip, addr, pf_addr4, FILL_L1, 0);
+prefetch_line(ip, addr, pf_addr1, FILL_L1, 0);
+prefetch_line(ip, addr, pf_addr2, FILL_L1, 0);
+prefetch_line(ip, addr, pf_addr3, FILL_L1, 0);
+prefetch_line(ip, addr, pf_addr4, FILL_L1, 0);
     
     // }
     // naman

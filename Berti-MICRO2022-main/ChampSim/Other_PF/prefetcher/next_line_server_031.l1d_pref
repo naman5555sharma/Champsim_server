@@ -24,12 +24,12 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
 {
     // cout << "address in prefetcher vr "<< hex <<addr<<endl;
     // cout << "address in prefetcher physical "<< hex <<full_physical_address<<endl;
-        // Setting delta values -2,2,1,-16,-32,-1
+        // Setting delta values 1,2,-1,0,-2,4
     delta1 = -2,
     delta2 = 2,
     delta3 = 1,
-    delta4 = -16,
-    delta5 = -32;
+    delta4 = 4,
+    delta5 = -1;
     uint64_t pf_addr = ((addr >> LOG2_BLOCK_SIZE) + delta1) << LOG2_BLOCK_SIZE;
     uint64_t pf_addr1 = ((addr >> LOG2_BLOCK_SIZE) + delta2) << LOG2_BLOCK_SIZE;
     uint64_t pf_addr2 = ((addr >> LOG2_BLOCK_SIZE) + delta3) << LOG2_BLOCK_SIZE;
@@ -112,7 +112,7 @@ void CACHE::l1d_prefetcher_final_stats()
 
     cout << "got hit in buffer "<< get_hit_in_buffer <<endl;
     cout << "bypassed in LLC or L2C "<< bypassed <<endl;
-
+    cout << "Buffer size is  " << buffer_size <<endl;
 
     // cout << "Top 5 Deltas used are " << delta1 << " "<< delta2 << " "<< delta3 << " "<< delta4 << " "<< delta5 <<endl;
 

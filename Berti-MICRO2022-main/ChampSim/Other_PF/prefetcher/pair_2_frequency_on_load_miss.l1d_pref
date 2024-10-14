@@ -1,0 +1,136 @@
+#include "cache.h"
+#include <unordered_map>
+#include <queue>
+#include <vector>
+#include <cstdint>
+#include <map>
+#include <iostream>
+#include <cassert>
+
+using namespace std;
+
+static int64_t offset;
+static uint64_t prev_addr;
+static uint64_t count = 0;
+static uint64_t hit_count = 0;
+static uint64_t total_count = 0;
+static uint64_t total_miss_count = 0;
+
+struct OffsetPair
+{
+    int64_t first_offset;
+    int64_t second_offset;
+
+    bool operator<(const OffsetPair &other) const
+    {
+        return std::tie(first_offset, second_offset) < std::tie(other.first_offset, other.second_offset);
+    }
+};
+
+static OffsetPair prev_offset_pair;
+static std::map<OffsetPair, int64_t> offset_pair_frequency;
+
+void CACHE::l1d_prefetcher_initialize()
+{
+    // Initialize counts and variables
+    offset = 0;
+    prev_addr = 0;
+    count = 0;
+    hit_count = 0;
+    total_count = 0;
+    total_miss_count = 0;
+    offset_pair_frequency.clear();
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+{
+    if (warmup_complete)
+    {   
+        // Update total access count
+        total_count++;
+
+        if (count == 0)
+        {
+            prev_addr = addr >> LOG2_BLOCK_SIZE;
+            count++;
+            return;
+        }
+        else if (count == 1)
+        {
+            int64_t curr_block_addr = addr >> LOG2_BLOCK_SIZE; 
+            prev_offset_pair.first_offset = curr_block_addr - prev_addr;
+            prev_addr = curr_block_addr;
+            count++;
+            return;
+        }
+        else if (count == 2)
+        {
+            int64_t curr_block_addr = addr >> LOG2_BLOCK_SIZE;
+            prev_offset_pair.second_offset = curr_block_addr - prev_addr;
+            prev_addr = curr_block_addr;
+            offset_pair_frequency[prev_offset_pair]++;
+            count++;
+            return;
+        }
+
+        uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
+        offset = block_addr - prev_addr;
+
+        if (count >= 3 && !cache_hit)
+        {
+            OffsetPair current_offset_pair = {prev_offset_pair.second_offset, offset};
+            offset_pair_frequency[current_offset_pair]++;
+            prev_offset_pair = current_offset_pair;
+            total_miss_count++;
+        }
+
+        prev_addr = block_addr;
+    }
+}
+
+void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void CACHE::l1d_prefetcher_final_stats()
+{
+    cout << "-------------------------------------Main Data---------------------------------------" << endl;
+
+    std::cout << "Number of hits: " << hit_count << std::endl;
+    std::cout << "Number of total accesses: " << total_count << std::endl;
+    std::cout << "Percentage of hit: " << (static_cast<double>(hit_count) / total_count) * 100 << "%" << std::endl;
+    std::cout << "Total miss count: " << total_miss_count << std::endl;
+
+    std::cout << "Offset Pair Frequency Stats:" << std::endl;
+
+    // Use a min-heap to find the top 100 frequencies for offset pairs
+    priority_queue<pair<int64_t, OffsetPair>, vector<pair<int64_t, OffsetPair>>, greater<pair<int64_t, OffsetPair>>> min_heap_pairs;
+    for (const auto &pair : offset_pair_frequency)
+    {
+        min_heap_pairs.push(make_pair(pair.second, pair.first));
+        if (min_heap_pairs.size() > 100)
+        {
+            min_heap_pairs.pop();
+        }
+    }
+
+    vector<pair<int64_t, OffsetPair>> top100_pairs;
+    while (!min_heap_pairs.empty())
+    {
+        top100_pairs.push_back(min_heap_pairs.top());
+        min_heap_pairs.pop();
+    }
+
+    // Print top 100 offset pair frequencies
+    std::cout << "Top 100 Offset Pair Frequencies:" << std::endl;
+    for (auto it = top100_pairs.rbegin(); it != top100_pairs.rend(); ++it)
+    {
+        std::cout << "Offset Pair: " << it->second.first_offset << "," << it->second.second_offset << ", Frequency: " << static_cast<double>(it->first) / total_miss_count << std::endl;
+    }
+
+    cout << "-------------------------------------Main Data---------------------------------------" << endl;
+}

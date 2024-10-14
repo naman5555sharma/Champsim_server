@@ -21,20 +21,34 @@ static std::map<int64_t, int64_t> stride_frequency;
 
 void CACHE::l1d_prefetcher_initialize()
 {
-    cout << "Trace_analysis" << endl;
 }
 
 void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
 {
     assert(addr);
+    if (flag == 0)
+    {
+        prev_addr = addr >> LOG2_BLOCK_SIZE;
+        flag = 1;
+        return;
+    }
+
     uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
     offset = block_addr - prev_addr;
 
-
-    stride_frequency[offset]++;
-    total_miss_count++;
-
+    if (!cache_hit)
+    {
+        stride_frequency[block_addr]++;
+        total_miss_count++;
+    }
     prev_addr = block_addr;
+    if (cache_hit)
+    {
+        hit_count++;
+        total_count++;
+    }
+    else
+        total_count++;
 }
 
 void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
@@ -53,8 +67,6 @@ void CACHE::l1d_prefetcher_final_stats()
     std::cout << "Percentage of hit: " << (static_cast<double>(hit_count) / total_count) * 100 << std::endl;
     cout << endl
          << endl;
-
-    cout << "Total miss Count" << total_miss_count << endl;
 
     // Print the pairs from the stride_frequency map
     std::cout << "Stride Frequency Stats:" << std::endl;
@@ -83,17 +95,6 @@ void CACHE::l1d_prefetcher_final_stats()
     {
         std::cout << "Delta: " << it->second << ", Frequency: " << static_cast<double>(it->first) / total_miss_count << std::endl;
     }
-    // uint64_t key = 0;
-    // auto it = stride_frequency.find(key);
-
-    // if (it != stride_frequency.end())
-    // {
-    //     std::cout << "Frequency of element " << key << " is " << it->second << std::endl;
-    // }
-    // else
-    // {
-    //     std::cout << "Element " << key << " not found in the map." << std::endl;
-    // }
 
     cout << "-------------------------------------Main Data---------------------------------------" << endl;
 }

@@ -12,6 +12,7 @@ static int64_t stride2 = 0;
 static int check_stride =1;
 static uint64_t ping_pong_count = 0;
 static uint64_t total_count =0;
+static uint64_t main_total_count =0;
 // Define a map to store the frequency of each stride
 // static std::map<int64_t, int64_t> stride_frequency;
 
@@ -26,7 +27,7 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
 {
     // Assert that the address is non-negative
     assert(addr >= 0);
-
+    main_total_count++;
     if(first_access){
         last_accessed_address = (addr >> LOG2_BLOCK_SIZE);
         first_access =0;
@@ -40,7 +41,7 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
             stride1 = (addr >> LOG2_BLOCK_SIZE) - (last_accessed_address);
             // last_accessed_address = (addr >> LOG2_BLOCK_SIZE);
             check_stride = 0 ;
-            if(stride1 < -63 || stride1 >63 ){
+            if(stride1 < -1024 || stride1 > 1024 ){
                 total_count++;
             }
         }
@@ -50,7 +51,7 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
             stride2 = (addr >> LOG2_BLOCK_SIZE) - (last_accessed_address);
             // last_accessed_address = (addr >> LOG2_BLOCK_SIZE);
             check_stride =1;
-            if(stride2 < -63 || stride2 >63 ){
+            if(stride2 < -1024 || stride2 >1024 ){
                 total_count++;
             }
         }
@@ -72,12 +73,12 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
         
         
 
-        if((stride1 > 63 && stride2 < -63) || (stride1 < -63 && stride2 > 63)) {
+        if((stride1 > 1024 && stride2 < -1024) || (stride1 < -1024 && stride2 > 1024)) {
             // total_count++;
-            // if (diff_stride >= -63 && diff_stride <= 63)
-            if (diff_stride == 0)
+            if (diff_stride >= -63 && diff_stride <= 63)
+            // if (diff_stride == 0)
             {
-                ping_pong_count = ping_pong_count+1;
+                ping_pong_count++;
             }
         }
 
@@ -124,12 +125,20 @@ void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t s
 
 void CACHE::l1d_prefetcher_final_stats()
 {
+    cout << "----------------------------------main data-------------------------------------------"<< endl;
     // uint64_t total = total_count - ping_pong_count; 
     // std::cout << "total " << total << std::endl;
-    double percentage = (static_cast<double>(ping_pong_count)/total_count)*100;
+    double percentage_ping_pong_in_total = (static_cast<double>(ping_pong_count)/main_total_count)*100;
+    double percentage_ping_pong_in_page_jump = (static_cast<double>(ping_pong_count)/total_count)*100;
+    double percentage_total_jump = (static_cast<double>(total_count)/main_total_count)*100;
+    // double percentage_same_ping_pong_in_ping_pong = (static_cast<double>(total_count)/main_total_count)*100;
     std::cout << "ping pong count "<< ping_pong_count << std::endl;
-    std::cout << "Total count "<< total_count << std::endl;
-    std::cout << "percentage of ping pong " << percentage << std::endl;
+    std::cout << "Total ping pong count "<< total_count << std::endl;
+    std::cout << "Total count "<< main_total_count << std::endl;
+    std::cout << "percentage of ping pong among total access " << percentage_ping_pong_in_total << std::endl;
+    std::cout << "percentage of ping pong among page jump " << percentage_ping_pong_in_page_jump << std::endl;
+    std::cout << "percentage of total page jump " << percentage_total_jump << std::endl;
+    // std::cout << "percentage of ping pong among same address in ping_pong" << percentage_same_ping_pong_in_ping_pong << std::endl;
 
     // Print the pairs from the stride_frequency map
     // std::cout << "Stride Frequency Stats:" << std::endl;
@@ -138,4 +147,5 @@ void CACHE::l1d_prefetcher_final_stats()
     // }
 
     // Implementation for other final_stats if needed
+    cout << "----------------------------------main data-------------------------------------------" << endl;
 }

@@ -1,0 +1,83 @@
+#include "cache.h"
+
+#include <map>
+
+using namespace std;
+
+static std::map<int64_t, int64_t> IP_User;
+static std::map<int64_t, int64_t> IP_Kernel;
+static std::map<int64_t, int64_t> IP_extreme;
+static std::map<int64_t, int64_t> IP_Total;
+static uint64_t user_count = 0;
+static uint64_t kernel_count = 0;
+static uint64_t total_count = 0;
+static uint64_t extreme_count = 0;
+
+void CACHE::l1d_prefetcher_initialize() 
+{
+    cout << "separate_user_kernel_addr" << endl;
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+{
+    total_count++;
+    IP_Total[ip]++;
+    
+    if(addr < 0x800000000000)
+    // ffffb5a97038
+    // if(addr > 0x7ff000000000)
+    {
+        IP_User[ip]++;
+        user_count++;
+        // cout << "If condition: " << addr << endl;
+    }
+    // else if (addr > 0xffff00000000)
+    // {
+    //     IP_extreme[ip]++;
+    //     extreme_count++;
+    //     // cout << " addr : " << addr << endl;
+    // }
+    else{
+        IP_Kernel[ip]++;
+        kernel_count++;
+        // cout << "else condition: " << addr << endl;
+    }
+    
+    // cout << "addr normal " <<dec<< addr << endl;
+    // cout << "Hex addr" << hex<< addr <<endl;
+
+}
+
+void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+{
+
+
+
+}
+
+void CACHE::l1d_prefetcher_final_stats()
+{
+    cout << "-----------------------main data-----------------------" << endl;
+    cout << "total_count: " << total_count << endl;
+    cout << "kernel count: " << kernel_count << endl;
+    cout << "user count: " << user_count << endl;
+    // cout << "extreme count: " << extreme_count << endl;
+    // cout << "Percentage of Kernel call: " << kernel_count/total_count << endl;
+    cout << "Percentage of user call: " << (user_count / static_cast<double>(total_count)) * 100 << endl;
+    cout << "Percentage of Kernel call: " << (kernel_count / static_cast<double>(total_count)) * 100 << endl;
+    // cout << "Percentage of extreme call: " << (extreme_count / static_cast<double>(total_count)) * 100 << endl;
+    cout << "Total distinct entries in IP_Kernel: " << IP_Kernel.size() << endl;
+    cout << "Total distinct entries in IP_User: " << IP_User.size() << endl;
+    cout << "Total distinct entries in IP_Total: " << IP_Total.size() << endl;
+    cout << "Percentage of Kernel IP: " << (IP_Kernel.size() / static_cast<double>(IP_Total.size())) * 100 << endl;
+    cout << "Percentage of User IP: " << (IP_User.size() / static_cast<double>(IP_Total.size())) * 100 << endl;
+    // cout << "Percentage of extreme IP: " << (IP_extreme.size() / static_cast<double>(IP_Total.size())) * 100 << endl;
+    
+    cout << "-----------------------main data-----------------------" << endl;
+
+}

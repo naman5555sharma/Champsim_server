@@ -1,0 +1,67 @@
+#include "cache.h"
+
+#include <map>
+
+using namespace std;
+
+static std::map<int64_t, int64_t> IP_User;
+static std::map<int64_t, int64_t> IP_Kernel;
+// static std::map<int64_t, int64_t> IP_extreme;
+static std::map<int64_t, int64_t> IP_Total;
+static uint64_t user_count = 0;
+static uint64_t kernel_count = 0;
+static uint64_t total_count = 0;
+// static uint64_t extreme_count = 0;
+
+void print_top_deltas(const std::map<int64_t, int64_t> &delta_frequency, const std::string &title)
+{
+    priority_queue<pair<int64_t, int64_t>, vector<pair<int64_t, int64_t>>, greater<pair<int64_t, int64_t>>> min_heap;
+    for (const auto &pair : delta_frequency)
+    {
+        min_heap.push(make_pair(pair.second, pair.first));
+        if (min_heap.size() > 100)
+        {
+            min_heap.pop();
+        }
+    }
+
+    vector<pair<int64_t, int64_t>> top100;
+    while (!min_heap.empty())
+    {
+        top100.push_back(min_heap.top());
+        min_heap.pop();
+    }
+
+    std::cout << title << std::endl;
+    for (auto it = top100.rbegin(); it != top100.rend(); ++it)
+    {
+        std::cout << "Delta: " << it->second << ", Frequency: " << static_cast<double>(it->first) / total_count << std::endl;
+    }
+}
+
+void CACHE::l1d_prefetcher_initialize()
+{
+    cout << "average_distinct_ip" << endl;
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+{
+    IP_Total[ip]++;
+}
+
+void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void CACHE::l1d_prefetcher_final_stats()
+{
+    cout << "-----------------------main data-----------------------" << endl
+         << endl;
+    cout << "Total distinct entries in IP_TOTAL: " << IP_Total.size() << endl
+         << endl;
+    cout << "-----------------------main data-----------------------" << endl;
+}

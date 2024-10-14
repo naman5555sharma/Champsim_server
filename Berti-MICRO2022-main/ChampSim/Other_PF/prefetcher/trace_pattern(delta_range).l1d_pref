@@ -1,0 +1,278 @@
+// #include "cache.h"
+
+// #include <map>
+
+// using namespace std;
+// static int64_t stride;
+// static uint64_t prev_block_addr;
+
+// static uint64_t hit_count = 0;
+
+// static uint64_t total_count = 0;
+// static int flag = 0;
+// static int within_64 = 0;
+// static int over_64_less_4gb = 0;
+// static int over_4gb = 0;
+// static int something_else = 0;
+// static int hit_in_64 = 0;
+// static int hit_in_4GB = 0;
+// static int hit_over_4GB = 0;
+
+// void CACHE::l1d_prefetcher_initialize()
+// {
+// }
+
+// void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+// {
+//     if (warmup_complete)
+//     {
+
+//         assert(addr);
+//         if (flag == 0)
+//         {
+//             prev_block_addr = addr >> LOG2_BLOCK_SIZE;
+//             flag = 1;
+//             return;
+//         }
+
+//         uint64_t current_addr = addr;
+//         uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
+//         stride = block_addr - prev_block_addr;
+//         prev_block_addr = block_addr;
+
+//         // std::cout << "Cycle : " << current_core_cycle[0] << " Addr: " << current_addr << " Block addr: " << block_addr << " Stride: " << stride << " Cache hit: " << (cache_hit ? 1 : 0) << std::endl;
+//         if (stride < 64 && stride > -64)
+//         {
+//             within_64++;
+//             if (cache_hit)
+//             {
+//                 hit_in_64++;
+//             }
+//         }
+//         else if ((stride > 64 && stride < 4294967296) || (stride < -64 && stride > -4294967296))
+//         {
+//             over_64_less_4gb++;
+//             if (cache_hit)
+//             {
+//                 hit_in_4GB++;
+//             }
+//         }
+//         else if (stride > 4294967296 || stride < -4294967296)
+//         {
+//             over_4gb++;
+//             if (cache_hit)
+//             {
+//                 hit_over_4GB++;
+//             }
+//         }
+//         else
+//             something_else++;
+
+//         if (cache_hit)
+//         {
+//             hit_count++;
+//             total_count++;
+//         }
+//         else
+//             total_count++;
+//     }
+// }
+
+// void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+// {
+// }
+
+// void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+// {
+// }
+
+// void CACHE::l1d_prefetcher_final_stats()
+// {
+//     std::cout << "-------------------------------Main DATA----------------------------------------" << std::endl;
+
+//     uint64_t sum_of_all = within_64 + over_64_less_4gb + over_4gb + something_else;
+//     std::cout << "Number of hits: " << hit_count << std::endl;
+//     std::cout << "Number of total accesses: " << total_count << std::endl;
+//     std::cout << "Percentage of hit: " << (static_cast<double>(hit_count) / total_count) * 100 << std::endl;
+//     cout << "within 64 : " << within_64 << endl;
+//     cout << "over 64 and less than 4GB : " << over_64_less_4gb << endl;
+//     cout << "large offset than 4GB : " << over_4gb << endl;
+//     cout << "something else : " << something_else << endl;
+//     cout << "sum of all : " << sum_of_all << endl
+//          << endl
+//          << endl;
+//     cout << "hit within 64 = " << (static_cast<double>(hit_in_64) / within_64) * 100 << endl;
+//     cout << "hit in 4GB = " << (static_cast<double>(hit_in_4GB) / over_64_less_4gb) * 100 << endl;
+//     cout << "hit over 4GB = " << (static_cast<double>(hit_over_4GB) / over_4gb) * 100 << endl
+//          << endl
+//          << endl;
+//     cout << "Percentage of 64 = " << (static_cast<double>(within_64) / sum_of_all) * 100 << endl;
+//     cout << "Percentage of 64 to 4GB = " << (static_cast<double>(over_64_less_4gb) / sum_of_all) * 100 << endl;
+//     cout << "Percentage over 4GB = " << (static_cast<double>(over_4gb) / sum_of_all) * 100 << endl
+//          << endl
+//          << endl;
+
+//     if (sum_of_all == total_count)
+//     {
+//         cout << "count is same ---- code is correct " << endl;
+//     }
+//     else
+//         cout << "Count is not same ------error in code ---" << endl;
+
+//     std::cout << "-------------------------------Main DATA----------------------------------------" << std::endl;
+// }
+
+
+#include "cache.h"
+
+#include <map>
+
+using namespace std;
+static int64_t stride;
+static uint64_t prev_block_addr;
+
+static uint64_t hit_count = 0;
+static uint64_t total_count = 0;
+
+static int flag = 0;
+static int within_64 = 0;
+static int within_1000 = 0;
+static int within_2000 = 0;
+static int within_5000 = 0;
+static int within_4gb = 0;
+static int over_4gb = 0;
+
+static int hit_within_64 = 0;
+static int hit_within_1000 = 0;
+static int hit_within_2000 = 0;
+static int hit_within_5000 = 0;
+static int hit_within_4gb = 0;
+static int hit_over_4gb = 0;
+
+void CACHE::l1d_prefetcher_initialize()
+{
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+{
+    if (warmup_complete)
+    {
+        assert(addr);
+        if (flag == 0)
+        {
+            prev_block_addr = addr >> LOG2_BLOCK_SIZE;
+            flag = 1;
+            return;
+        }
+
+        uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
+        stride = block_addr - prev_block_addr;
+        prev_block_addr = block_addr;
+
+        // Update counters based on the stride value
+        if (stride < 64 && stride > -64)
+        {
+            within_64++;
+            if (cache_hit)
+            {
+                hit_within_64++;
+            }
+        }
+        else if (stride < 1000 && stride > -1000)
+        {
+            within_1000++;
+            if (cache_hit)
+            {
+                hit_within_1000++;
+            }
+        }
+        else if (stride < 2000 && stride > -2000)
+        {
+            within_2000++;
+            if (cache_hit)
+            {
+                hit_within_2000++;
+            }
+        }
+        else if (stride < 5000 && stride > -5000)
+        {
+            within_5000++;
+            if (cache_hit)
+            {
+                hit_within_5000++;
+            }
+        }
+        else if ((stride >= 5000 && stride < 4294967296) || (stride <= -5000 && stride > -4294967296))
+        {
+            within_4gb++;
+            if (cache_hit)
+            {
+                hit_within_4gb++;
+            }
+        }
+        else
+        {
+            over_4gb++;
+            if (cache_hit)
+            {
+                hit_over_4gb++;
+            }
+        }
+
+        if (cache_hit)
+        {
+            hit_count++;
+        }
+        total_count++;
+    }
+}
+
+void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void CACHE::l1d_prefetcher_final_stats()
+{
+    std::cout << "-------------------------------Main DATA----------------------------------------" << std::endl;
+
+    uint64_t sum_of_all = within_64 + within_1000 + within_2000 + within_5000 + within_4gb + over_4gb;
+    std::cout << "Number of hits: " << hit_count << std::endl;
+    std::cout << "Number of total accesses: " << total_count << std::endl;
+    std::cout << "Percentage of hit: " << (static_cast<double>(hit_count) / total_count) * 100 << std::endl;
+    std::cout << "within 64 : " << within_64 << std::endl;
+    std::cout << "within 1000 : " << within_1000 << std::endl;
+    std::cout << "within 2000 : " << within_2000 << std::endl;
+    std::cout << "within 5000 : " << within_5000 << std::endl;
+    std::cout << "within 4GB : " << within_4gb << std::endl;
+    std::cout << "large offset than 4GB : " << over_4gb << std::endl;
+    std::cout << "sum of all : " << sum_of_all << std::endl << std::endl << std::endl;
+
+    std::cout << "hit within 64 = " << (static_cast<double>(hit_within_64) / within_64) * 100 << std::endl;
+    std::cout << "hit within 1000 = " << (static_cast<double>(hit_within_1000) / within_1000) * 100 << std::endl;
+    std::cout << "hit within 2000 = " << (static_cast<double>(hit_within_2000) / within_2000) * 100 << std::endl;
+    std::cout << "hit within 5000 = " << (static_cast<double>(hit_within_5000) / within_5000) * 100 << std::endl;
+    std::cout << "hit within 4GB = " << (static_cast<double>(hit_within_4gb) / within_4gb) * 100 << std::endl;
+    std::cout << "hit over 4GB = " << (static_cast<double>(hit_over_4gb) / over_4gb) * 100 << std::endl << std::endl << std::endl;
+
+    std::cout << "Percentage of 64 = " << (static_cast<double>(within_64) / sum_of_all) * 100 << std::endl;
+    std::cout << "Percentage of 1000 = " << (static_cast<double>(within_1000) / sum_of_all) * 100 << std::endl;
+    std::cout << "Percentage of 2000 = " << (static_cast<double>(within_2000) / sum_of_all) * 100 << std::endl;
+    std::cout << "Percentage of 5000 = " << (static_cast<double>(within_5000) / sum_of_all) * 100 << std::endl;
+    std::cout << "Percentage of 4GB = " << (static_cast<double>(within_4gb) / sum_of_all) * 100 << std::endl;
+    std::cout << "Percentage over 4GB = " << (static_cast<double>(over_4gb) / sum_of_all) * 100 << std::endl << std::endl << std::endl;
+
+    if (sum_of_all == total_count)
+    {
+        std::cout << "count is same ---- code is correct " << std::endl;
+    }
+    else
+    {
+        std::cout << "Count is not same ------error in code ---" << std::endl;
+    }
+
+    std::cout << "-------------------------------Main DATA----------------------------------------" << std::endl;
+}

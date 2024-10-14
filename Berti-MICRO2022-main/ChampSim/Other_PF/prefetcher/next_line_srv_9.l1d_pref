@@ -41,10 +41,10 @@ void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit
     // cout << " pf_cl: " << (pf_addr>>LOG2_BLOCK_SIZE) << " ip: " << ip << " cache_hit: " << +cache_hit << " type: " << +type << endl; });
     // if(!cache_hit){
     prefetch_line(ip, addr, pf_addr, FILL_L1, 0);
-    prefetch_line(ip, addr, pf_addr1, FILL_L1, 0);
-    prefetch_line(ip, addr, pf_addr2, FILL_L1, 0);
-    prefetch_line(ip, addr, pf_addr3, FILL_L1, 0);
-    prefetch_line(ip, addr, pf_addr4, FILL_L1, 0);
+prefetch_line(ip, addr, pf_addr1, FILL_L1, 0);
+prefetch_line(ip, addr, pf_addr2, FILL_L1, 0);
+prefetch_line(ip, addr, pf_addr3, FILL_L1, 0);
+prefetch_line(ip, addr, pf_addr4, FILL_L1, 0);
     
     // }
     // naman

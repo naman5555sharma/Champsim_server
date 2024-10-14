@@ -1,0 +1,188 @@
+#include "cache.h"
+#include <queue>
+#include <vector>
+#include <iostream>
+#include <ooo_cpu.h>
+#include <map> // Include map header
+
+// Data structures to track deltas and frequencies
+static std::map<int64_t, int64_t> stride_frequency;
+static std::vector<std::vector<std::pair<int64_t, int64_t>>> top5_deltas_phases; // Store top 5 deltas and their frequencies for each phase
+static int64_t delta;
+static int64_t prev_addr = 0;
+static uint64_t total_miss_count = 0;
+static uint64_t total_count = 0;
+static uint64_t phase_count = 0;  // Count loads in the current phase
+static const uint64_t PHASE_SIZE = 1000000; // Loads per phase
+
+// Function to check if delta is within range [-63, 63]
+bool is_valid_delta(int64_t delta) {
+    return delta >= -63 && delta <= 63;
+}
+
+void CACHE::l1d_prefetcher_initialize() {
+    cout << "CPU " << cpu << " L1D next line prefetcher" << endl;
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag, uint64_t full_physical_address) {
+    uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
+    delta = block_addr - prev_addr;
+    prev_addr = block_addr;
+
+    total_count++;
+
+    // Only record valid deltas (within the range [-63, 63]) on cache misses
+    if (!cache_hit){ //&& is_valid_delta(delta)) {
+        stride_frequency[delta]++;
+        total_miss_count++;
+    }
+
+    phase_count++;
+
+    // If we reach the phase limit (based on retired instructions), calculate top 5 deltas
+    if (phase_count == PHASE_SIZE) {
+        // Use a min-heap to find the top 5 deltas by frequency
+        std::priority_queue<std::pair<int64_t, int64_t>, std::vector<std::pair<int64_t, int64_t>>, std::greater<std::pair<int64_t, int64_t>>> min_heap;
+
+        // Add all valid deltas and their frequencies to the min-heap
+        for (const auto &pair : stride_frequency) {
+            // if (is_valid_delta(pair.first)) {  // Ensure delta is in the range [-63, 63]
+                min_heap.push(std::make_pair(pair.second, pair.first)); // (frequency, delta)
+                if (min_heap.size() > 5) {
+                    min_heap.pop(); // Keep only the top 5 deltas with the highest frequencies
+                }
+            // }
+        }
+
+        // Collect the top 5 deltas and their frequencies for the current phase
+        std::vector<std::pair<int64_t, int64_t>> top5_deltas;
+        while (!min_heap.empty()) {
+            top5_deltas.push_back(min_heap.top()); // Save (frequency, delta) pair
+            min_heap.pop();
+        }
+        top5_deltas_phases.push_back(top5_deltas); // Save top 5 deltas for this phase
+
+        // Reset counters and stride frequency for the next phase
+        phase_count = 0;
+        stride_frequency.clear(); // Start fresh for the next phase
+    }
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in) {
+    // No action needed in cache fill for this prefetcher
+}
+
+// Function to print final statistics
+void CACHE::l1d_prefetcher_final_stats() {
+    cout << "Final Stats for CPU " << cpu << " L1D Prefetcher:" << endl;
+    cout << "Total Misses: " << total_miss_count << endl;
+    cout << "Total Accesses: " << total_count << endl;
+
+    // Print top 5 deltas for each phase
+    for (size_t phase = 0; phase < top5_deltas_phases.size(); ++phase) {
+        cout << "Phase " << phase + 1 << " Top 5 Deltas (Delta: Frequency):" << endl;
+        for (const auto& pair : top5_deltas_phases[phase]) {
+            cout << "Delta: " << pair.second << ", Frequency: " << pair.first << endl;
+        }
+        cout << endl;
+    }
+}
+
+
+
+
+// #include "cache.h"
+// #include <queue>
+// #include <vector>
+// #include <iostream>
+// #include <ooo_cpu.h>
+
+// // Data structures to track deltas
+// static std::map<int64_t, int64_t> stride_frequency;
+// static std::vector<std::vector<int64_t>> top5_deltas_phases; // Store top 5 deltas for each phase
+// static int64_t delta;
+// static int64_t prev_addr = 0;
+// static uint64_t total_miss_count = 0;
+// static uint64_t total_count = 0;
+// static uint64_t phase_count = 0;  // Count loads in the current phase
+// static const uint64_t PHASE_SIZE = 10000000; // loads per phase
+// static std::vector<int64_t> current_top5_deltas; // Store top 5 deltas for the current phase
+
+// void CACHE::l1d_prefetcher_initialize()
+// {
+//     cout << "CPU " << cpu << " L1D next line prefetcher" << endl;
+// }
+
+// void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag, uint64_t full_physical_address)
+// {
+//     uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
+//     delta = block_addr - prev_addr;
+//     prev_addr = block_addr;
+
+//     total_count++;
+
+//     // Only record deltas on cache misses
+//     if (!cache_hit) {
+//         stride_frequency[delta]++;
+//         total_miss_count++;
+//     }
+
+//     phase_count++;
+
+//     // Prefetch based on the top 5 deltas of the current phase (ignore delta 0)
+//     for (const auto &top_delta : current_top5_deltas) {
+//         if (top_delta != 0) { // Don't prefetch for delta 0
+//             uint64_t prefetch_addr = (block_addr + top_delta) << LOG2_BLOCK_SIZE;
+//             prefetch_line(L1D, prefetch_addr, ip, type);
+//         }
+//     }
+
+//     // If we reach the phase limit (based on retired instructions), calculate the top 5 deltas
+//     if (phase_count == PHASE_SIZE) {
+//         // Use a min-heap to find the top 5 deltas
+//         std::priority_queue<std::pair<int64_t, int64_t>, std::vector<std::pair<int64_t, int64_t>>, std::greater<std::pair<int64_t, int64_t>>> min_heap;
+        
+//         for (const auto &pair : stride_frequency) {
+//             min_heap.push(std::make_pair(pair.second, pair.first));
+//             if (min_heap.size() > 5) {
+//                 min_heap.pop(); // Keep only top 5 deltas
+//             }
+//         }
+
+//         // Collect the top 5 deltas for the current phase
+//         current_top5_deltas.clear();
+//         while (!min_heap.empty()) {
+//             current_top5_deltas.push_back(min_heap.top().second); // Save delta value
+//             min_heap.pop();
+//         }
+//         top5_deltas_phases.push_back(current_top5_deltas); // Save top 5 deltas for this phase
+
+//         // Reset counters and stride frequency for the next phase
+//         phase_count = 0;
+//         stride_frequency.clear(); // Start fresh for the next phase
+//     }
+// }
+
+
+// void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+// {
+// }
+
+// void CACHE::l1d_prefetcher_final_stats()
+// {
+//     cout << "-------------------------------------Final Stats---------------------------------------" << endl;
+//     std::cout << "Number of total accesses: " << total_count << std::endl;
+//     std::cout << "Total miss count: " << total_miss_count << std::endl;
+
+//     // Print the top 5 deltas for each phase
+//     std::cout << "Top 5 Deltas for each phase (every " << PHASE_SIZE << " loads):" << std::endl;
+//     for (size_t i = 0; i < top5_deltas_phases.size(); i++) {
+//         std::cout << "Phase " << i + 1 << ": ";
+//         for (const auto &delta : top5_deltas_phases[i]) {
+//             std::cout << delta << " ";
+//         }
+//         std::cout << std::endl;
+//     }
+
+//     std::cout << "-------------------------------------End of Stats---------------------------------------" << endl;
+// }

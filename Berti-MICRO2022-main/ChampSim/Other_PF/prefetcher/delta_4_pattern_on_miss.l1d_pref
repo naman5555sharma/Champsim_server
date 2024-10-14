@@ -1,0 +1,192 @@
+#include "cache.h"
+#include <unordered_map>
+#include <queue>
+#include <vector>
+#include <cstdint>
+#include <map>
+#include <iostream>
+#include <cassert>
+
+using namespace std;
+
+static int64_t offset;
+static uint64_t prev_addr;
+
+static uint64_t hit_count = 0;
+static uint64_t total_count = 0;
+static int count_check = 0;
+static int flag = 0;
+static uint64_t total_miss_count = 0;
+static uint64_t total_miss_count_for_frequency = 0;
+
+static std::map<int64_t, int64_t> offset_frequency;
+
+// static uint64_t address[5];
+constexpr int SIZE = 5;
+static array<uint64_t, SIZE> addresses; // for address storage by which we can calculate upcoming three offsets
+
+static array<int, SIZE> hit_check; // for checking hit for that paticular offset
+
+static uint64_t cross_check = 0;
+
+void calculate_offset(const std::array<uint64_t, SIZE> &addresses)
+{
+    // std::cout << "Differences:" << std::endl;
+    for (int i = 1; i < SIZE; ++i)
+    {
+        // std::cout << arr[0] << " - " << arr[i] << " = " << (arr[0] - arr[i]) << std::endl;
+        int64_t offset = (addresses[i] - addresses[0]); //
+        total_miss_count_for_frequency++;
+        if (!hit_check[i]) // on miss
+        {
+            cross_check++;
+            offset_frequency[offset]++;
+        }
+    }
+}
+
+void shift_and_add_address(std::array<uint64_t, SIZE> &arr, uint64_t new_address)
+{
+    // Shift elements to the left
+    for (int i = 0; i < SIZE - 1; ++i)
+    {
+        arr[i] = arr[i + 1];
+    }
+    // Add new element to the last position
+    arr[SIZE - 1] = new_address;
+}
+
+void shift_and_add_hit(std::array<int, SIZE> &arr, int new_hit)
+{
+    // Shift elements to the left
+    for (int i = 0; i < SIZE - 1; ++i)
+    {
+        arr[i] = arr[i + 1];
+    }
+    // Add new element to the last position
+    arr[SIZE - 1] = new_hit;
+}
+
+void CACHE::l1d_prefetcher_initialize()
+{
+    cout << "delta_4_pattern_on_miss" << endl;
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+{
+    assert(addr);
+
+    // if (total_count <= SIZE)
+    // {
+    //     uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
+    //     addresses[total_count] = block_addr;
+    //     hit_check[total_count] = cache_hit ? 1 : 0;
+    //     total_count++;
+    //     return;
+    // }
+    total_count++;
+    if (total_count == 1)
+    {
+        uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
+        addresses[0] = block_addr;
+        hit_check[0] = cache_hit ? 1 : 0;
+        return;
+    }
+    else if (total_count == 2)
+    {
+        uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
+        addresses[1] = block_addr;
+        hit_check[1] = cache_hit ? 1 : 0;
+        return;
+    }
+    else if (total_count == 3)
+    {
+        uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
+        addresses[2] = block_addr;
+        hit_check[2] = cache_hit ? 1 : 0;
+        return;
+    }
+    else if (total_count == 4)
+    {
+        uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
+        addresses[3] = block_addr;
+        hit_check[3] = cache_hit ? 1 : 0;
+        return;
+    }
+    else if (total_count == 5)
+    {
+        uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
+        addresses[4] = block_addr;
+        hit_check[4] = cache_hit ? 1 : 0;
+        return;
+    }
+
+    calculate_offset(addresses);
+
+    uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
+    int hit = cache_hit ? 1 : 0;
+    // cout << "hit: "<< hit << endl;
+    shift_and_add_hit(hit_check, hit);
+    shift_and_add_address(addresses, block_addr);
+
+    if (!cache_hit)
+    {
+        total_miss_count++;
+    }
+
+    return;
+}
+
+void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void print_top_deltas(const std::map<int64_t, int64_t> &delta_frequency, const std::string &title)
+{
+    priority_queue<pair<int64_t, int64_t>, vector<pair<int64_t, int64_t>>, greater<pair<int64_t, int64_t>>> min_heap;
+    for (const auto &pair : delta_frequency)
+    {
+        min_heap.push(make_pair(pair.second, pair.first));
+        if (min_heap.size() > 100)
+        {
+            min_heap.pop();
+        }
+    }
+
+    vector<pair<int64_t, int64_t>> top100;
+    while (!min_heap.empty())
+    {
+        top100.push_back(min_heap.top());
+        min_heap.pop();
+    }
+
+    std::cout << title << std::endl;
+    for (auto it = top100.rbegin(); it != top100.rend(); ++it)
+    {
+        std::cout << "Delta: " << it->second << ", Frequency: " << static_cast<double>(it->first) / cross_check << std::endl;
+    }
+}
+
+void CACHE::l1d_prefetcher_final_stats()
+{
+    cout << "-------------------------------------Main Data---------------------------------------" << endl;
+    // std::cout << "Number of hits: " << hit_count << std::endl;
+    // std::cout << "Number of total accesses: " << total_count << std::endl;
+    // std::cout << "Percentage of hit: " << (static_cast<double>(hit_count) / total_count) * 100 << std::endl;
+    cout << endl
+         << endl;
+
+    // cout << "Total miss Count" << total_miss_count << endl;
+
+    // Print the pairs from the stride_frequency map
+    std::cout << "Offset Frequency Stats:" << std::endl;
+
+    cout << "----------------------- top 100 -----------------------" << endl;
+    print_top_deltas(offset_frequency, "Top 100 offset Frequencies:");
+
+    cout << "-------------------------------------Main Data---------------------------------------" << endl;
+}

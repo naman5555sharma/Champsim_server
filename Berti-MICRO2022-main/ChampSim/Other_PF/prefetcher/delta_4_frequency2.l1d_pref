@@ -1,0 +1,127 @@
+#include "cache.h"
+#include <iostream>
+#include <map>
+#include <array>
+#include <cstdint>
+
+constexpr int SIZE = 4;
+
+static std::array<int64_t, SIZE> delta_4{}; // for storing last 4 deltas
+
+struct ArrayCompare
+{
+    bool operator()(const std::array<int64_t, SIZE> &lhs, const std::array<int64_t, SIZE> &rhs) const
+    {
+        return std::lexicographical_compare(lhs.begin(), lhs.end(), rhs.begin(), rhs.end());
+    }
+};
+
+static std::map<std::array<int64_t, SIZE>, int64_t, ArrayCompare> delta_4_frequency; // to keep count of distinct delta group
+
+static uint64_t prev_block_addr; // previous block address accessed
+
+static uint64_t totalcount = 0; // keep count of total load access
+
+void shift_and_add_delta(std::array<int64_t, SIZE> &arr, int64_t new_delta)
+{
+    // Shift elements to the left
+    for (int i = 0; i < SIZE - 1; ++i)
+    {
+        arr[i] = arr[i + 1];
+    }
+    // Add new element to the last position
+    arr[SIZE - 1] = new_delta;
+}
+
+void CACHE::l1d_prefetcher_initialize()
+{
+    std::cout << "delta_4_frequency " << std::endl;
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+{
+    totalcount++;
+    if (totalcount == 1)
+    {
+        prev_block_addr = addr >> LOG2_BLOCK_SIZE;
+        return;
+    }
+
+    uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
+    int64_t delta = block_addr - prev_block_addr;
+    if (totalcount <= 5)
+    {
+        delta_4[totalcount - 2] = delta;
+        if (totalcount == 5)
+        {
+            delta_4_frequency[delta_4]++;
+        }
+        prev_block_addr = block_addr;
+        return;
+    }
+    shift_and_add_delta(delta_4, delta);
+    delta_4_frequency[delta_4]++;
+    prev_block_addr = block_addr;
+    return;
+}
+
+void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void print_top_deltas(const std::map<std::array<int64_t, SIZE>, int64_t, ArrayCompare>& delta_frequency, const std::string& title)
+{
+    using DeltaPair = std::pair<int64_t, std::array<int64_t, SIZE>>;
+    std::priority_queue<DeltaPair, std::vector<DeltaPair>, std::greater<DeltaPair>> min_heap;
+
+    for (const auto& pair : delta_frequency)
+    {
+        min_heap.push(std::make_pair(pair.second, pair.first));
+        if (min_heap.size() > 100)
+        {
+            min_heap.pop();
+        }
+    }
+
+    std::vector<DeltaPair> top100;
+    while (!min_heap.empty())
+    {
+        top100.push_back(min_heap.top());
+        min_heap.pop();
+    }
+
+    std::cout << title << std::endl;
+    for (auto it = top100.rbegin(); it != top100.rend(); ++it)
+    {
+        std::cout << "Delta: ";
+        for (size_t i = 0; i < SIZE; ++i)
+        {
+            std::cout << it->second[i];
+            if (i < SIZE - 1)
+            {
+                std::cout << ", ";
+            }
+        }
+        std::cout << ", Frequency: " << static_cast<double>(it->first) / delta_4_frequency.size() << std::endl;
+    }
+}
+
+void CACHE::l1d_prefetcher_final_stats()
+{
+    std::cout << "-----------------------Main Data--------------------------" << std::endl
+              << std::endl
+              << std::endl;
+    size_t size = delta_4_frequency.size();
+    std::cout << " Total number of distinct groups " << size << endl
+              << endl
+              << endl;
+
+    cout << "----------------------- top 100 -----------------------" << endl;
+    print_top_deltas(delta_4_frequency, "Top 100 groups Frequencies:");
+
+    std::cout << "-----------------------Main Data--------------------------" << std::endl;
+}

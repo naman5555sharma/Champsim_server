@@ -1,0 +1,969 @@
+// #include "cache.h"
+// #include <algorithm>
+// #include <vector>
+
+// static uint64_t last_cl_addr;
+// // static int64_t delta;
+// static size_t maxSize = 16;
+// static vector<pair<int64_t, uint64_t>> deltas;
+// static uint64_t total_access_count = 0;
+// static uint64_t last_page;
+// bool sortbysec(const pair<int64_t, uint64_t> &a, const pair<int64_t, uint64_t> &b)
+// {
+//     return (a.second < b.second);
+// }
+
+// // Function to find the element with the least frequency
+// int findLeastFrequentIndex()
+// {
+//     return std::min_element(deltas.begin(), deltas.end(),
+//                             [](const std::pair<int64_t, uint64_t> &a, const std::pair<int64_t, uint64_t> &b)
+//                             {
+//                                 return a.second < b.second;
+//                             }) -
+//            deltas.begin();
+// }
+// // Function to insert an delta into the deltas vector
+// void insertDelta(int64_t element)
+// {
+//     // Check if the element exists
+//     auto it = std::find_if(deltas.begin(), deltas.end(), [element](const std::pair<int64_t, uint64_t> &p)
+//                            { return p.first == element; });
+
+//     if (it != deltas.end())
+//     {
+//         // Element found, increment its frequency
+//         it->second++;
+//     }
+//     else
+//     {
+//         // Element not found, check if the vector is full
+//         if (deltas.size() >= maxSize)
+//         {
+//             // Find the index of the least frequent element
+//             int leastFrequentIndex = findLeastFrequentIndex();
+
+//             // Replace the least frequent element with the new one
+//             deltas[leastFrequentIndex] = {element, 1};
+//         }
+//         else
+//         {
+//             // Add the new element with frequency 1
+//             deltas.emplace_back(element, 1);
+//         }
+//     }
+
+//     // Sort the vector based on frequency in descending order
+//     std::sort(deltas.begin(), deltas.end(),
+//               [](const std::pair<int64_t, uint64_t> &a, const std::pair<int64_t, uint64_t> &b)
+//               {
+//                   return a.second > b.second;
+//               });
+// }
+
+// void CACHE::l1d_prefetcher_initialize()
+// {
+//     cout << "CPU " << cpu << " pf_buffer " << endl;
+// }
+
+// void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag, uint64_t full_physical_address)
+// {
+//     if (!cache_hit)
+//     {
+//         total_access_count++;
+//     }
+
+//     // total_access_count++ ;
+//     int64_t stride;
+//     uint64_t curr_cl_addr = addr >> LOG2_BLOCK_SIZE;
+//     if (total_access_count == 1)
+//     {
+//         last_cl_addr = curr_cl_addr;
+//         return;
+//     }
+//     stride = curr_cl_addr - last_cl_addr;
+//     if ((stride < 64 || stride > 64)&& stride != 0)
+//     {
+//         if (!cache_hit)
+//             insertDelta(stride);
+//     }
+
+//     for (const auto &delta : deltas)
+//     {
+//         double frequency_percentage = (double(delta.second) / total_access_count) * 100;
+//         if (frequency_percentage > 2.0)
+//         {
+//             // cout << "Delta: " << delta.first << ", Frequency: " << delta.second << " (" << frequency_percentage << "%)" << endl;
+//             if ((addr >> LOG2_PAGE_SIZE == last_page))
+//             {
+//                 uint64_t pf_addr = (curr_cl_addr + delta.first) << LOG2_BLOCK_SIZE;
+//                 prefetch_line(ip, addr, pf_addr, FILL_L1, 0);
+//             }
+//         }
+//     }
+
+//     last_cl_addr = curr_cl_addr;
+//     last_page = addr >> LOG2_PAGE_SIZE;
+// }
+
+// void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+// {
+// }
+
+// void CACHE::l1d_prefetcher_final_stats()
+// {
+//     // naman
+//     cout << "-------------------------------------Main Data---------------------------------------" << endl;
+//     cout << "got hit in buffer " << get_hit_in_buffer << endl;
+//     cout << "-------------------------------------Main Data---------------------------------------" << endl;
+//     // naman
+// }
+
+
+
+
+
+// #include "cache.h"
+// #include <algorithm>
+// #include <vector>
+
+// static uint64_t last_cl_addr;
+// static const size_t maxSize = 127; // Store up to 127 deltas
+// static std::vector<std::pair<int64_t, uint64_t>> deltas;
+// static uint64_t total_access_count = 0;
+// static uint64_t last_page;
+// static const uint64_t max_instructions = 50000000; // 50 million instructions
+// static uint64_t instruction_count = 0; // Track instruction count
+
+// bool sortbysec(const std::pair<int64_t, uint64_t> &a, const std::pair<int64_t, uint64_t> &b)
+// {
+//     return (a.second < b.second);
+// }
+
+// // Function to find the element with the least frequency
+// int findLeastFrequentIndex()
+// {
+//     return std::min_element(deltas.begin(), deltas.end(),
+//                             [](const std::pair<int64_t, uint64_t> &a, const std::pair<int64_t, uint64_t> &b)
+//                             {
+//                                 return a.second < b.second;
+//                             }) - deltas.begin();
+// }
+
+// // Function to insert a delta into the deltas vector
+// void insertDelta(int64_t element)
+// {
+//     // Check if the element exists
+//     auto it = std::find_if(deltas.begin(), deltas.end(), [element](const std::pair<int64_t, uint64_t> &p)
+//                            { return p.first == element; });
+
+//     if (it != deltas.end())
+//     {
+//         // Element found, increment its frequency
+//         it->second++;
+//     }
+//     else
+//     {
+//         // Element not found, check if the vector is full
+//         if (deltas.size() >= maxSize)
+//         {
+//             // Find the index of the least frequent element
+//             int leastFrequentIndex = findLeastFrequentIndex();
+
+//             // Replace the least frequent element with the new one
+//             deltas[leastFrequentIndex] = {element, 1};
+//         }
+//         else
+//         {
+//             // Add the new element with frequency 1
+//             deltas.emplace_back(element, 1);
+//         }
+//     }
+
+//     // Sort the vector based on frequency in descending order
+//     std::sort(deltas.begin(), deltas.end(),
+//               [](const std::pair<int64_t, uint64_t> &a, const std::pair<int64_t, uint64_t> &b)
+//               {
+//                   return a.second > b.second;
+//               });
+// }
+
+// void CACHE::l1d_prefetcher_initialize()
+// {
+//     std::cout << "CPU " << cpu << " pf_buffer initialized" << std::endl;
+// }
+
+// void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag, uint64_t full_physical_address)
+// {
+//     // Only process for the first 50 million instructions
+//     // if (instruction_count >= max_instructions) return;
+
+//     instruction_count++;
+
+//     if (!cache_hit)
+//     {
+//         total_access_count++;
+//     }
+
+//     int64_t stride;
+//     uint64_t curr_cl_addr = addr >> LOG2_BLOCK_SIZE;
+//     if (total_access_count == 1)
+//     {
+//         last_cl_addr = curr_cl_addr;
+//         return;
+//     }
+
+//     stride = curr_cl_addr - last_cl_addr;
+//     if (stride != 0)
+//     {
+//         // Store only non-zero strides
+//             insertDelta(stride);
+//     }
+
+//     // Prefetch using top 5 deltas if we've crossed the instruction threshold
+//     // if (instruction_count >= max_instructions)
+//     // {
+//         // Prefetch using the top 5 deltas
+//         for (int i = 0; i < std::min(5, (int)deltas.size()); i++)
+//         {
+//             const auto &delta = deltas[i];
+//             double frequency_percentage = (double(delta.second) / total_access_count) * 100;
+
+//             // if (frequency_percentage > 2.0)
+//             // {
+//                 // Prefetch only if the delta occurs frequently enough
+//                 if ((addr >> LOG2_PAGE_SIZE == last_page))
+//                 {
+//                     uint64_t pf_addr = (curr_cl_addr + delta.first) << LOG2_BLOCK_SIZE;
+//                     prefetch_line(ip, addr, pf_addr, FILL_L1, 0);
+//                 }
+//             // }
+//         }
+//     // }
+
+//     last_cl_addr = curr_cl_addr;
+//     last_page = addr >> LOG2_PAGE_SIZE;
+// }
+
+// void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+// {
+//     // No specific implementation needed for cache fill
+// }
+
+// void CACHE::l1d_prefetcher_final_stats()
+// {
+//     std::cout << "-------------------------------------Main Data---------------------------------------" << std::endl;
+//     std::cout << "Total Accesses: " << total_access_count << std::endl;
+//     std::cout << "Prefetcher hit in buffer: " << get_hit_in_buffer << std::endl;
+//     std::cout << "-------------------------------------Main Data---------------------------------------" << std::endl;
+// }
+
+
+
+// //mizra-gries algorithm
+
+// #include "cache.h"
+// #include <iostream>
+// #include <array>
+
+// static uint64_t last_cl_addr;
+// static const size_t maxSize = 127; // For -63 to +63 deltas
+// static std::array<int64_t, 127> deltas = {0}; // Array to store delta counts
+// static std::array<int64_t, 127> delta_values = {0}; // Array to store delta values (-63 to 63)
+// static uint64_t total_access_count = 0;
+// static uint64_t last_page;
+// static const uint64_t max_instructions = 50000000; // 50 million instructions
+// static uint64_t instruction_count = 0; // Track instruction count
+
+// // Function to check if the delta is within the range [-63, 63]
+// bool is_valid_delta(int64_t delta) {
+//     return delta >= -63 && delta <= 63;
+// }
+
+// // Function to insert a delta using the Misra-Gries algorithm
+// void insertDelta(int64_t delta) {
+//     // Check if delta is within the valid range [-63, 63]
+//     if (!is_valid_delta(delta)) {
+//         return; // Ignore invalid deltas
+//     }
+
+//     // Index corresponding to the delta (-63 maps to 0, +63 maps to 126)
+//     int index = delta + 63;
+
+//     if (delta_values[index] == delta) {
+//         // Delta is already being tracked, increment the count
+//         deltas[index]++;
+//     } else if (delta_values[index] == 0) {
+//         // Empty spot, assign the delta and set count to 1
+//         delta_values[index] = delta;
+//         deltas[index] = 1;
+//     } else {
+//         // Delta not found, decrement all counters
+//         for (int i = 0; i < maxSize; i++) {
+//             if (deltas[i] > 0) {
+//                 deltas[i]--;
+//                 if (deltas[i] == 0) {
+//                     delta_values[i] = 0; // Reset the delta when count reaches 0
+//                 }
+//             }
+//         }
+//     }
+// }
+
+// void CACHE::l1d_prefetcher_initialize() {
+//     std::cout << "CPU " << cpu << " pf_buffer initialized" << std::endl;
+// }
+
+// void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag, uint64_t full_physical_address) {
+//     // Only process for the first 50 million instructions
+//     instruction_count++;
+
+//     if (!cache_hit) {
+//         total_access_count++;
+//     }
+
+//     int64_t stride;
+//     uint64_t curr_cl_addr = addr >> LOG2_BLOCK_SIZE;
+//     if (total_access_count == 1) {
+//         last_cl_addr = curr_cl_addr;
+//         return;
+//     }
+
+//     stride = curr_cl_addr - last_cl_addr;
+//     if (stride != 0) {
+//         // Store only non-zero strides within the range of -63 to +63
+//         insertDelta(stride);
+//     }
+
+//     // Prefetch using top deltas if we've crossed the instruction threshold
+//     for (int i = 0; i < maxSize; i++) {
+//         if (deltas[i] > 0) {
+//             // Prefetch based on tracked delta values
+//             int64_t delta = delta_values[i];
+//             double frequency_percentage = (double(deltas[i]) / total_access_count) * 100;
+
+//             // Prefetch if delta is frequent enough
+//             if (addr >> LOG2_PAGE_SIZE == last_page) {
+//                 uint64_t pf_addr = (curr_cl_addr + delta) << LOG2_BLOCK_SIZE;
+//                 prefetch_line(ip, addr, pf_addr, FILL_L1, 0);
+//             }
+//         }
+//     }
+
+//     last_cl_addr = curr_cl_addr;
+//     last_page = addr >> LOG2_PAGE_SIZE;
+// }
+
+// void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in) {
+//     // No specific implementation needed for cache fill
+// }
+
+// void CACHE::l1d_prefetcher_final_stats() {
+//     std::cout << "-------------------------------------Main Data---------------------------------------" << std::endl;
+//     std::cout << "Total Accesses: " << total_access_count << std::endl;
+//     std::cout << "-------------------------------------Main Data---------------------------------------" << std::endl;
+// }
+
+
+// //misra-gries--updated
+
+// #include "cache.h"
+// #include <iostream>
+// #include <array>
+// #include <vector>
+// #include <algorithm>
+
+// static uint64_t last_cl_addr;
+// static const size_t maxSize = 127; // For -63 to +63 deltas
+// static std::array<int64_t, 127> deltas = {0}; // Array to store delta counts
+// static std::array<int64_t, 127> delta_values = {0}; // Array to store delta values (-63 to 63)
+// static uint64_t total_access_count = 0;
+// static uint64_t last_page;
+// static const uint64_t max_instructions = 50000000; // 50 million instructions
+// static uint64_t instruction_count = 0; // Track instruction count
+
+// // Array to track the count of deltas used for prefetching
+// static std::array<int64_t, 127> prefetch_delta_counts = {0};
+
+// // Function to check if the delta is within the range [-63, 63]
+// bool is_valid_delta(int64_t delta) {
+//     return delta >= -63 && delta <= 63;
+// }
+
+// // Function to insert a delta using the Misra-Gries algorithm
+// void insertDelta(int64_t delta) {
+//     // Check if delta is within the valid range [-63, 63]
+//     if (!is_valid_delta(delta)) {
+//         return; // Ignore invalid deltas
+//     }
+
+//     // Index corresponding to the delta (-63 maps to 0, +63 maps to 126)
+//     int index = delta + 63;
+
+//     if (delta_values[index] == delta) {
+//         // Delta is already being tracked, increment the count
+//         deltas[index]++;
+//     } else if (delta_values[index] == 0) {
+//         // Empty spot, assign the delta and set count to 1
+//         delta_values[index] = delta;
+//         deltas[index] = 1;
+//     } else {
+//         // Delta not found, decrement all counters
+//         for (int i = 0; i < maxSize; i++) {
+//             if (deltas[i] > 0) {
+//                 deltas[i]--;
+//                 if (deltas[i] == 0) {
+//                     delta_values[i] = 0; // Reset the delta when count reaches 0
+//                 }
+//             }
+//         }
+//     }
+// }
+// // Corrected get_top_deltas function with the correct lambda comparison for std::pair
+// std::vector<std::pair<int64_t, int64_t>> get_top_deltas(int top_n) {
+//     // Store delta values and their corresponding counts in a vector
+//     std::vector<std::pair<int64_t, int64_t>> delta_freq;
+    
+//     for (int i = 0; i < maxSize; i++) {
+//         if (deltas[i] > 0) {
+//             delta_freq.push_back({delta_values[i], deltas[i]});
+//         }
+//     }
+
+//     // Sort the vector by the count (frequency) in descending order
+//     std::sort(delta_freq.begin(), delta_freq.end(), [](const std::pair<int64_t, int64_t>& a, const std::pair<int64_t, int64_t>& b) {
+//         return a.second > b.second;
+//     });
+
+//     // Return only the top_n deltas
+//     if (delta_freq.size() > top_n) {
+//         delta_freq.resize(top_n);
+//     }
+
+//     return delta_freq;
+// }
+
+
+// void CACHE::l1d_prefetcher_initialize() {
+//     std::cout << "CPU " << cpu << " pf_buffer initialized" << std::endl;
+// }
+
+// void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag){//, uint64_t full_physical_address) {
+//     instruction_count++;
+
+//     if (cache_hit) {
+//         total_access_count++;
+//     }
+
+//     int64_t stride;
+//     uint64_t curr_cl_addr = addr >> LOG2_BLOCK_SIZE;
+//     if (total_access_count == 1) {
+//         last_cl_addr = curr_cl_addr;
+//         return;
+//     }
+
+//     stride = curr_cl_addr - last_cl_addr;
+//     if (stride != 0) {
+//         // Store only non-zero strides within the range of -63 to +63
+//         insertDelta(stride);
+//     }
+
+//     // Prefetch using the top 5 deltas if we've crossed the instruction threshold
+//     auto top_deltas = get_top_deltas(5); // Get top 5 deltas
+//     for (const auto& [delta, count] : top_deltas) {
+//         double frequency_percentage = (double(count) / total_access_count) * 100;
+
+//         // Prefetch if delta is frequent enough
+//         if (addr >> LOG2_PAGE_SIZE == last_page) {
+//             uint64_t pf_addr = (curr_cl_addr + delta) << LOG2_BLOCK_SIZE;
+//             prefetch_line(ip, addr, pf_addr, FILL_L1, 0);
+
+//             // Update the prefetch delta count
+//             int index = delta + 63; // Map delta to array index
+//             prefetch_delta_counts[index]++;
+//         }
+//     }
+
+//     last_cl_addr = curr_cl_addr;
+//     last_page = addr >> LOG2_PAGE_SIZE;
+// }
+
+// void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in) {
+//     // No specific implementation needed for cache fill
+// }
+
+// void CACHE::l1d_prefetcher_final_stats() {
+//     std::cout << "-------------------------------------Main Data---------------------------------------" << std::endl;
+//     std::cout << "Total Accesses: " << total_access_count << std::endl;
+    
+//     // Print the prefetch delta usage statistics
+//     std::cout << "Prefetch Delta Usage:" << std::endl;
+//     for (int i = 0; i < maxSize; i++) {
+//         if (prefetch_delta_counts[i] > 0) {
+//             std::cout << "Delta: " << (i - 63) << ", Count: " << prefetch_delta_counts[i] << std::endl;
+//         }
+//     }
+
+//     std::cout << "-------------------------------------Main Data---------------------------------------" << std::endl;
+// }
+
+// User Misra-Gries structures
+// static std::array<int64_t, 127> user_deltas = {0};
+// static std::array<int64_t, 127> user_delta_values = {0};
+
+// // kernel Misra-Gries structures
+// static std::array<int64_t, 127> kernel_deltas = {0};
+// static std::array<int64_t, 127> kernel_delta_values = {0};
+
+
+
+// // LOCAL + GLOBAL misra-gries
+// #include "cache.h"
+// #include <iostream>
+// #include <array>
+// #include <vector>
+// #include <algorithm>
+
+// // Structure to hold delta and the count of its usage for prefetching
+// struct DeltaUsage {
+//     int64_t delta;    // The delta value
+//     int64_t count;    // The number of times this delta was used for prefetching
+// };
+
+// static std::array<DeltaUsage, 127> global_prefetch_usage = {0}; // To track prefetch deltas and their counts
+
+// // Constants and globals
+// static const size_t maxSize = 127; // For -63 to +63 deltas
+// static const int local_phase_size = 10000; // Number of loads per local phase
+
+// static uint64_t last_cl_addr;
+// static uint64_t total_access_count = 0;
+// static uint64_t last_page;
+// static const uint64_t max_instructions = 50000000; // 50 million instructions
+// static uint64_t instruction_count = 0; // Track instruction count
+
+// // Global Misra-Gries structures
+// static std::array<int64_t, 127> global_deltas = {0};
+// static std::array<int64_t, 127> global_delta_values = {0};
+
+
+// // Local Misra-Gries structures for phase
+// static std::array<int64_t, 127> local_deltas = {0};
+// static std::array<int64_t, 127> local_delta_values = {0};
+
+// static uint64_t local_phase_count = 0; // Track the number of loads in the current phase
+
+// // Function to check if the delta is within the range [-63, 63]
+// bool is_valid_delta(int64_t delta) {
+//     return delta >= -63 && delta <= 63;
+// }
+
+// // Function to insert a delta using the Misra-Gries algorithm
+// void insertDelta(int64_t delta, std::array<int64_t, 127>& deltas, std::array<int64_t, 127>& delta_values) {
+//     // Check if delta is within the valid range [-63, 63]
+//     if (!is_valid_delta(delta)) {
+//         return; // Ignore invalid deltas
+//     }
+
+//     // Index corresponding to the delta (-63 maps to 0, +63 maps to 126)
+//     int index = delta + 63;
+
+//     if (delta_values[index] == delta) {
+//         // Delta is already being tracked, increment the count
+//         deltas[index]++;
+//     } else if (delta_values[index] == 0) {
+//         // Empty spot, assign the delta and set count to 1
+//         delta_values[index] = delta;
+//         deltas[index] = 1;
+//     } else {
+//         // Delta not found, decrement all counters
+//         for (int i = 0; i < maxSize; i++) {
+//             if (deltas[i] > 0) {
+//                 deltas[i]--;
+//                 if (deltas[i] == 0) {
+//                     delta_values[i] = 0; // Reset the delta when count reaches 0
+//                 }
+//             }
+//         }
+//     }
+// }
+
+// // Function to get top N deltas from a delta array and values
+// std::vector<std::pair<int64_t, int64_t>> get_top_deltas(int top_n, const std::array<int64_t, 127>& deltas, const std::array<int64_t, 127>& delta_values) {
+//     std::vector<std::pair<int64_t, int64_t>> delta_freq;
+    
+//     for (int i = 0; i < maxSize; i++) {
+//         if (deltas[i] > 0) {
+//             delta_freq.push_back({delta_values[i], deltas[i]});
+//         }
+//     }
+
+//     // Sort by frequency
+//     std::sort(delta_freq.begin(), delta_freq.end(), [](const std::pair<int64_t, int64_t>& a, const std::pair<int64_t, int64_t>& b) {
+//         return a.second > b.second;
+//     });
+
+//     // Return only the top_n deltas
+//     if (delta_freq.size() > top_n) {
+//         delta_freq.resize(top_n);
+//     }
+
+//     return delta_freq;
+// }
+
+// // Function to find common deltas between global and local deltas
+// std::vector<int64_t> get_common_deltas(const std::vector<std::pair<int64_t, int64_t>>& global, const std::vector<std::pair<int64_t, int64_t>>& local) {
+//     std::vector<int64_t> common_deltas;
+//     for (const auto& global_pair : global) {
+//         for (const auto& local_pair : local) {
+//             if (global_pair.first == local_pair.first) {
+//                 common_deltas.push_back(global_pair.first);
+//             }
+//         }
+//     }
+//     return common_deltas;
+// }
+
+// // Prefetcher initialization
+// void CACHE::l1d_prefetcher_initialize() {
+//     std::cout << "CPU " << cpu << " pf_buffer initialized" << std::endl;
+// }
+
+// // Prefetcher operation
+// void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag) {
+//     // instruction_count++;
+//     total_access_count++;
+//     if (!cache_hit) {
+        
+//         local_phase_count++;
+//     }
+
+//     int64_t stride;
+//     uint64_t curr_cl_addr = addr >> LOG2_BLOCK_SIZE;
+//     if (total_access_count == 1) {
+//         last_cl_addr = curr_cl_addr;
+//         return;
+//     }
+
+//     stride = curr_cl_addr - last_cl_addr;
+//     if (stride != 0) {
+//         // Insert the stride into both global and local structures
+//         insertDelta(stride, global_deltas, global_delta_values);
+//         insertDelta(stride, local_deltas, local_delta_values);
+//     }
+
+//     // Prefetch using the global top deltas
+//     auto top_global_deltas = get_top_deltas(5, global_deltas, global_delta_values);
+//     for (const auto& [delta, count] : top_global_deltas) {
+//         if (addr >> LOG2_PAGE_SIZE == last_page) {
+//             uint64_t pf_addr = (curr_cl_addr + delta) << LOG2_BLOCK_SIZE;
+//             prefetch_line(ip, addr, pf_addr, FILL_L1, 0);
+
+//             // Track the delta usage
+//             int index = delta + 63; // Map delta range [-63, 63] to index [0, 126]
+//             if (global_prefetch_usage[index].delta == delta) {
+//                 global_prefetch_usage[index].count++;
+//             } else if (global_prefetch_usage[index].delta == 0) {
+//                 global_prefetch_usage[index].delta = delta;
+//                 global_prefetch_usage[index].count = 1;
+//             }
+//         }
+//     }
+
+//     // Check if local phase is complete
+//     if (local_phase_count >= local_phase_size) {
+//         // Get the top deltas from the local phase
+//         auto top_local_deltas = get_top_deltas(5, local_deltas, local_delta_values);
+        
+//         // Find common deltas between global and local phases
+//         std::vector<int64_t> common_deltas = get_common_deltas(top_global_deltas, top_local_deltas);
+
+//         // Update global delta tracking to prioritize common deltas
+//         for (int i = 0; i < maxSize; i++) {
+//             if (std::find(common_deltas.begin(), common_deltas.end(), global_delta_values[i]) == common_deltas.end()) {
+//                 global_deltas[i] = 0;  // Reset non-common deltas
+//                 global_delta_values[i] = 0;
+//             }
+//         }
+
+//         // Reset local phase counters
+//         local_phase_count = 0;
+//         local_deltas.fill(0);
+//         local_delta_values.fill(0);
+//     }
+
+//     last_cl_addr = curr_cl_addr;
+//     last_page = addr >> LOG2_PAGE_SIZE;
+// }
+
+
+// void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in) {
+//     // No specific implementation needed for cache fill
+// }
+
+// void CACHE::l1d_prefetcher_final_stats() {
+//     std::cout << "-------------------------------------Main Data---------------------------------------" << std::endl;
+//     std::cout << "Total Accesses: " << total_access_count << std::endl;
+
+//     std::cout << "Global Prefetch Delta Usage:" << std::endl;
+//     for (int i = 0; i < maxSize; i++) {
+//         if (global_prefetch_usage[i].count > 0) {
+//             std::cout << "Delta: " << global_prefetch_usage[i].delta << ", Count: " << global_prefetch_usage[i].count << std::endl;
+//         }
+//     }
+
+//     std::cout << "-------------------------------------Main Data---------------------------------------" << std::endl;
+// }
+
+
+
+//global + local+user+KERNEL
+
+#include "cache.h"
+#include <iostream>
+#include <array>
+#include <vector>
+#include <algorithm>
+
+// Constants and globals
+static const size_t maxSize = 127; // For -63 to +63 deltas
+static const int local_phase_size = 10000; // Number of loads per local phase
+static const uint64_t user_space_max = 0x00007fffffffffff; // Max user space address
+
+static uint64_t last_cl_addr;
+static uint64_t total_access_count = 0;
+static uint64_t last_page;
+static const uint64_t max_instructions = 50000000; // 50 million instructions
+static uint64_t instruction_count = 0; // Track instruction count
+
+// Structures to track the selected deltas and their counts for user and kernel space
+static std::array<int64_t, 127> user_prefetch_usage = {0};  // Track delta usage in user space
+static std::array<int64_t, 127> kernel_prefetch_usage = {0};  // Track delta usage in kernel space
+
+// Global Misra-Gries structures
+static std::array<int64_t, 127> global_deltas = {0};
+static std::array<int64_t, 127> global_delta_values = {0};
+
+// Local Misra-Gries structures for phase
+static std::array<int64_t, 127> local_deltas = {0};
+static std::array<int64_t, 127> local_delta_values = {0};
+
+// Separate structures for user and kernel space
+static std::array<int64_t, 127> user_deltas = {0};
+static std::array<int64_t, 127> user_delta_values = {0};
+static std::array<int64_t, 127> kernel_deltas = {0};
+static std::array<int64_t, 127> kernel_delta_values = {0};
+
+static uint64_t local_phase_count = 0; // Track the number of loads in the current phase
+
+// Function to check if the delta is within the range [-63, 63]
+bool is_valid_delta(int64_t delta) {
+    return delta >= -63 && delta <= 63;
+}
+
+// Function to insert a delta using the Misra-Gries algorithm
+void insertDelta(int64_t delta, std::array<int64_t, 127>& deltas, std::array<int64_t, 127>& delta_values) {
+    if (!is_valid_delta(delta)) {
+        return; // Ignore invalid deltas
+    }
+
+    int index = delta + 63;
+
+    if (delta_values[index] == delta) {
+        // Delta is already being tracked, increment the count
+        deltas[index]++;
+    } else if (delta_values[index] == 0) {
+        // Empty spot, assign the delta and set count to 1
+        delta_values[index] = delta;
+        deltas[index] = 1;
+    } else {
+        // Delta not found, decrement all counters
+        for (int i = 0; i < maxSize; i++) {
+            if (deltas[i] > 0) {
+                deltas[i]--;
+                if (deltas[i] == 0) {
+                    delta_values[i] = 0; // Reset the delta when count reaches 0
+                }
+            }
+        }
+    }
+}
+
+// Function to get top N deltas from a delta array and values
+std::vector<std::pair<int64_t, int64_t>> get_top_deltas(int top_n, const std::array<int64_t, 127>& deltas, const std::array<int64_t, 127>& delta_values) {
+    std::vector<std::pair<int64_t, int64_t>> delta_freq;
+
+    for (int i = 0; i < maxSize; i++) {
+        if (deltas[i] > 0) {
+            delta_freq.push_back({delta_values[i], deltas[i]});
+        }
+    }
+
+    // Sort by frequency
+    std::sort(delta_freq.begin(), delta_freq.end(), [](const std::pair<int64_t, int64_t>& a, const std::pair<int64_t, int64_t>& b) {
+        return a.second > b.second;
+    });
+
+    // Return only the top_n deltas
+    if (delta_freq.size() > top_n) {
+        delta_freq.resize(top_n);
+    }
+
+    return delta_freq;
+}
+
+// Function to find common deltas between multiple sets (global, local, and user/kernel)
+// std::vector<int64_t> get_common_deltas(const std::vector<std::pair<int64_t, int64_t>>& global,
+//                                        const std::vector<std::pair<int64_t, int64_t>>& local,
+//                                        const std::vector<std::pair<int64_t, int64_t>>& region) {
+//     std::vector<int64_t> common_deltas;
+
+//     for (const auto& global_pair : global) {
+//         bool found_in_local = false;
+//         bool found_in_region = false;
+
+//         for (const auto& local_pair : local) {
+//             if (global_pair.first == local_pair.first) {
+//                 found_in_local = true;
+//                 break;
+//             }
+//         }
+
+//         for (const auto& region_pair : region) {
+//             if (global_pair.first == region_pair.first) {
+//                 found_in_region = true;
+//                 break;
+//             }
+//         }
+
+//         if (found_in_local && found_in_region) {
+//             common_deltas.push_back(global_pair.first);
+//         }
+//     }
+
+//     return common_deltas;
+// }
+
+// Function to find common deltas between global and local deltas
+std::vector<int64_t> get_common_deltas(const std::vector<std::pair<int64_t, int64_t>>& global, const std::vector<std::pair<int64_t, int64_t>>& local) {
+    std::vector<int64_t> common_deltas;
+    for (const auto& global_pair : global) {
+        for (const auto& local_pair : local) {
+            if (global_pair.first == local_pair.first) {
+                common_deltas.push_back(global_pair.first);
+            }
+        }
+    }
+    return common_deltas;
+}
+
+// Prefetcher initialization
+void CACHE::l1d_prefetcher_initialize() {
+    std::cout << "CPU " << cpu << " pf_buffer initialized" << std::endl;
+}
+
+// Prefetcher operation
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag) {
+    instruction_count++;
+    total_access_count++;
+    if (!cache_hit) {
+        
+        local_phase_count++;
+    }
+
+    int64_t stride;
+    uint64_t curr_cl_addr = addr >> LOG2_BLOCK_SIZE;
+    if (total_access_count == 1) {
+        last_cl_addr = curr_cl_addr;
+        return;
+    }
+
+    stride = curr_cl_addr - last_cl_addr;
+    if (stride != 0) {
+        // Insert the stride into global, local, and user/kernel structures
+        insertDelta(stride, global_deltas, global_delta_values);
+        insertDelta(stride, local_deltas, local_delta_values);
+
+        if (addr <= user_space_max) {
+            insertDelta(stride, user_deltas, user_delta_values);
+        } else {
+            insertDelta(stride, kernel_deltas, kernel_delta_values);
+        }
+    }
+
+    bool is_kernel_space = addr > user_space_max;
+
+    // Get top deltas from global, local, and user/kernel
+    auto top_global_deltas = get_top_deltas(4, global_deltas, global_delta_values);
+    auto top_local_deltas = get_top_deltas(4, local_deltas, local_delta_values);
+    std::vector<int64_t> common_deltas;
+
+    if (is_kernel_space) {
+        auto top_kernel_deltas = get_top_deltas(4, kernel_deltas, kernel_delta_values);
+        common_deltas = get_common_deltas(top_global_deltas,  top_kernel_deltas);
+    } else {
+        auto top_user_deltas = get_top_deltas(4, user_deltas, user_delta_values);
+        common_deltas = get_common_deltas(top_global_deltas,  top_user_deltas);
+    }
+
+    // Prefetch using the common deltas
+    for (const auto& delta : common_deltas) {
+        if (addr >> LOG2_PAGE_SIZE == last_page) {
+            uint64_t pf_addr = (curr_cl_addr + delta) << LOG2_BLOCK_SIZE;
+            prefetch_line(ip, addr, pf_addr, FILL_L1, 0);
+
+            // Track the delta usage in user or kernel space
+            int index = delta + 63; // Map delta range [-63, 63] to index [0, 126]
+            if (is_kernel_space) {
+                kernel_prefetch_usage[index]++;
+            } else {
+                user_prefetch_usage[index]++;
+            }
+        }
+    }
+
+    // Check if local phase is complete
+    if (local_phase_count >= local_phase_size) {
+        for (int i = 0; i < maxSize; i++) {
+            if (std::find(common_deltas.begin(), common_deltas.end(), global_delta_values[i]) == common_deltas.end()) {
+                global_deltas[i] = 0;
+                global_delta_values[i] = 0;
+            }
+        }
+
+        // Reset local phase counters
+        local_phase_count = 0;
+        local_deltas.fill(0);
+        local_delta_values.fill(0);
+    }
+
+    last_cl_addr = curr_cl_addr;
+    last_page = addr >> LOG2_PAGE_SIZE;
+}
+
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in) {
+    // No specific implementation for cache fills in this prefetcher
+}
+
+
+void CACHE::l1d_prefetcher_final_stats() {
+    std::cout << "CPU " << cpu << " Total Accesses: " << total_access_count << std::endl;
+
+    // Print user space delta usage
+    std::cout << "User Space Prefetch Delta Usage:" << std::endl;
+    for (int i = 0; i < maxSize; i++) {
+        if (user_prefetch_usage[i] > 0) {
+            std::cout << "Delta: " << (i - 63) << ", Count: " << user_prefetch_usage[i] << std::endl;
+        }
+    }
+
+    // Print kernel space delta usage
+    std::cout << "Kernel Space Prefetch Delta Usage:" << std::endl;
+    for (int i = 0; i < maxSize; i++) {
+        if (kernel_prefetch_usage[i] > 0) {
+            std::cout << "Delta: " << (i - 63) << ", Count: " << kernel_prefetch_usage[i] << std::endl;
+        }
+    }
+}
+

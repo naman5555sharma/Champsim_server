@@ -1,0 +1,105 @@
+#include "cache.h"
+#include <iostream>
+#include <map>
+#include <cassert> // Include the assert header
+
+using namespace std;
+// Define a static variable to store the last accessed address
+static uint64_t last_accessed_address = 0;
+
+// Define a map to store the frequency of each delta
+static map<int64_t, int64_t> inter_delta;
+static map<int64_t, int64_t> intra_delta;
+
+//flags for inter and intra detection
+bool kernel = false;
+bool extreme = false;
+bool user = false;
+
+uint64_t large_delta_count = 0;
+uint64_t total_count = 0;
+//function to print top 100 frequency delta
+void print_top_deltas(const std::map<int64_t, int64_t> &delta_frequency, const std::string &title)
+{
+    priority_queue<pair<int64_t, int64_t>, vector<pair<int64_t, int64_t>>, greater<pair<int64_t, int64_t>>> min_heap;
+    for (const auto &pair : delta_frequency)
+    {
+        min_heap.push(make_pair(pair.second, pair.first));
+        if (min_heap.size() > 100)
+        {
+            min_heap.pop();
+        }
+    }
+
+    vector<pair<int64_t, int64_t>> top100;
+    while (!min_heap.empty())
+    {
+        top100.push_back(min_heap.top());
+        min_heap.pop();
+    }
+
+    std::cout << title << std::endl;
+    for (auto it = top100.rbegin(); it != top100.rend(); ++it)
+    {
+        std::cout << "Delta: " << it->second << ", Frequency: " << static_cast<double>(it->first) / total_count << std::endl;
+    }
+}
+void CACHE::l1d_prefetcher_initialize()
+{
+
+    cout << "pattern_in_ping_pong_inter_intra" << endl;
+    cout << "Here we are finding delta on ping pong behaviour " << endl;
+
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+{
+    if (warmup_complete)
+    {   
+        total_count++;
+        int64_t delta = (addr>>LOG2_BLOCK_SIZE) - (last_accessed_address>>LOG2_BLOCK_SIZE);
+
+        // if(delta > 4294967296)
+        if(delta  > 0x100000000 || delta < (-4294967296))
+        {
+            large_delta_count++;
+        }
+        if (large_delta_count%2 == 0)
+        {
+            intra_delta[delta]++;
+        }
+        else if (large_delta_count%2 == 1)
+        {
+            inter_delta[delta]++;
+        }
+        else {
+            cout << "oree baab oo ka dekh liya" << endl;
+        }
+        
+        
+
+        last_accessed_address = addr ;
+    }
+}
+
+void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+    // Implementation for notify_about_dtlb_eviction if needed
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+{
+    // Implementation for cache_fill if needed
+}
+
+void CACHE::l1d_prefetcher_final_stats()
+{
+    cout << "----------------------- User Delta -----------------------" << endl;
+    print_top_deltas(intra_delta, "Top 100 User Delta Frequencies:");
+
+    cout << "----------------------- Kernel Delta -----------------------" << endl;
+    print_top_deltas(inter_delta, "Top 100 kernel Delta Frequencies:");
+    
+    // cout << "----------------------- Extreme Delta -----------------------" << endl;
+    // print_top_deltas(extreme_delta, "Top 100 extreme Delta Frequencies:");
+}

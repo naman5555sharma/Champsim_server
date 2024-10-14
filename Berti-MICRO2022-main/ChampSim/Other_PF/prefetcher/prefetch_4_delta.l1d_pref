@@ -7,62 +7,50 @@ static int64_t prev_addr;
 static uint64_t total_miss_count = 0;
 static uint64_t hit_count = 0;
 static uint64_t total_count = 0;
-static int delta1 = -2;
-static int delta2 = 2;
-static int delta3 = 1;
-static int delta4 = -16;
-static int delta5 = -32;
 // naman
 
 void CACHE::l1d_prefetcher_initialize()
 {
-    cout << "CPU " << cpu << " L1D next line prefetcher" << endl;
-    // int delta1,delta2,delta3,delta4,delta5;
+    cout <<" prefetch_4_delta" << endl;
 }
 
-void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag , uint64_t full_physical_address)
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
 {
-    // cout << "address in prefetcher vr "<< hex <<addr<<endl;
-    // cout << "address in prefetcher physical "<< hex <<full_physical_address<<endl;
-        // Setting delta values -2,2,1,-16,-32,-1
-    delta1 = -2,
-    delta2 = 2,
-    delta3 = 1,
-    delta4 = -16,
-    delta5 = -32;
-    uint64_t pf_addr = ((addr >> LOG2_BLOCK_SIZE) + delta1) << LOG2_BLOCK_SIZE;
-    uint64_t pf_addr1 = ((addr >> LOG2_BLOCK_SIZE) + delta2) << LOG2_BLOCK_SIZE;
-    uint64_t pf_addr2 = ((addr >> LOG2_BLOCK_SIZE) + delta3) << LOG2_BLOCK_SIZE;
-    uint64_t pf_addr3 = ((addr >> LOG2_BLOCK_SIZE) + delta4) << LOG2_BLOCK_SIZE;
-    uint64_t pf_addr4 = ((addr >> LOG2_BLOCK_SIZE) + delta5) << LOG2_BLOCK_SIZE;
-    // cout << "prefetch addresses " << pf_addr <<endl;//" "<< pf_addr1 <<" "<< pf_addr2 <<" "<< pf_addr3 <<" " << endl; 
+    uint64_t pf_addr = ((addr >> LOG2_BLOCK_SIZE) + 1) << LOG2_BLOCK_SIZE;
+    // uint64_t pf_addr1 = ((addr >> LOG2_BLOCK_SIZE) - 1) << LOG2_BLOCK_SIZE;
+    uint64_t pf_addr2 = ((addr >> LOG2_BLOCK_SIZE) + 2) << LOG2_BLOCK_SIZE;
+    // uint64_t pf_addr3 = ((addr >> LOG2_BLOCK_SIZE) - 2) << LOG2_BLOCK_SIZE;
+
     // DP(if (warmup_complete[cpu]) {
     // cout << "[" << NAME << "] " << __func__ << hex << " base_cl: " << (addr>>LOG2_BLOCK_SIZE);
     // cout << " pf_cl: " << (pf_addr>>LOG2_BLOCK_SIZE) << " ip: " << ip << " cache_hit: " << +cache_hit << " type: " << +type << endl; });
-    // if(!cache_hit){
-    prefetch_line(ip, addr, pf_addr, FILL_L1, 0);
-    prefetch_line(ip, addr, pf_addr1, FILL_L1, 0);
-    prefetch_line(ip, addr, pf_addr2, FILL_L1, 0);
-    prefetch_line(ip, addr, pf_addr3, FILL_L1, 0);
-    prefetch_line(ip, addr, pf_addr4, FILL_L1, 0);
+
+    if (!cache_hit)
+    {
+        
     
-    // }
+    // prefetch_line(ip, addr, pf_addr, FILL_L1, 0);
+    prefetch_line(ip, addr, pf_addr1, FILL_L1, 0);
+    // prefetch_line(ip, addr, pf_addr2, FILL_L1, 0);
+    prefetch_line(ip, addr, pf_addr3, FILL_L1, 0);
+
+    }
     // naman
-    // uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
-    // delta = block_addr - prev_addr;
-    // prev_addr = block_addr;
-    // if (!cache_hit)
-    // {
-    //     stride_frequency[delta]++;
-    //     total_miss_count++;
-    // }
-    // if (cache_hit)
-    // {
-    //     hit_count++;
-    //     total_count++;
-    // }
-    // else
-    //     total_count++;
+    uint64_t block_addr = addr >> LOG2_BLOCK_SIZE;
+    delta = block_addr - prev_addr;
+    prev_addr = block_addr;
+    if (!cache_hit)
+    {
+        stride_frequency[delta]++;
+        total_miss_count++;
+    }
+    if (cache_hit)
+    {
+        hit_count++;
+        total_count++;
+    }
+    else
+        total_count++;
     // naman
 }
 
@@ -72,7 +60,7 @@ void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t s
 
 void CACHE::l1d_prefetcher_final_stats()
 {
-    // // naman
+    // naman
     // cout << "-------------------------------------Main Data---------------------------------------" << endl;
     // // cout << "CPU " << cpu << " L1D next line prefetcher final stats" << endl;
     // std::cout << "Number of hits: " << hit_count << std::endl;
@@ -109,13 +97,6 @@ void CACHE::l1d_prefetcher_final_stats()
     // {
     //     std::cout << "Delta: " << it->second << ", Frequency: " << static_cast<double>(it->first) / total_miss_count << std::endl;
     // }
-
-    cout << "got hit in buffer "<< get_hit_in_buffer <<endl;
-    cout << "bypassed in LLC or L2C "<< bypassed <<endl;
-
-
-    // cout << "Top 5 Deltas used are " << delta1 << " "<< delta2 << " "<< delta3 << " "<< delta4 << " "<< delta5 <<endl;
-
-    cout << "-------------------------------------Main Data---------------------------------------" << endl;
-    // // naman
+    // cout << "-------------------------------------Main Data---------------------------------------" << endl;
+    // naman
 }

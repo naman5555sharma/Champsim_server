@@ -1,0 +1,695 @@
+#include "cache.h"
+#include <unordered_map>
+#include <tuple>
+#include <iostream>
+#include <array>
+
+#include <algorithm>
+
+#define trace_total_count 500000
+
+static long long int trace_count = 0;
+static int sanity = 0;
+static int prin = 0;
+static int flag = 0;
+int64_t globalStride1 = 0;
+int64_t globalStride2 = 0;
+int64_t globalStride3 = 0;
+int64_t globalStride4 = 0;
+
+static long long int n_total = 0;
+static long long int prefetched = 1; // changed
+static long long int matched = 0;
+
+static std::array<uint64_t, 9> prev_addrs = {0, 0, 0, 0, 0, 0, 0, 0, 0};
+static std::array<uint64_t, 9> prev_ips = {0, 0, 0, 0, 0, 0, 0, 0, 0}; // CHANGED
+static std::array<uint64_t, 5> prev_ips_check = {0, 0, 0, 0, 0}; // CHANGED
+
+
+#include <unordered_map>
+#include <vector>
+#include <tuple>
+
+struct TrieNode
+{
+    std::unordered_map<int64_t, TrieNode *> children;
+    int count = 0;                  // Count for last element
+    long double maxPotential = 0.0; // Best arm for 3rd element
+    long double potential = 0.0;    // Potential for last element
+
+    int numberOfTimesPicked = 1; // Times picked for prefetching
+
+    int reward = 0; // Added
+
+    std::vector<std::pair<std::tuple<int64_t, int64_t, int64_t, int64_t>, int>> nextFourElementsSummary;
+
+    ~TrieNode()
+    {
+        for (auto &child : children)
+        {
+            delete child.second;
+        }
+    }
+};
+
+TrieNode *globalGroupRootNode = nullptr; // This remains unchanged
+// Updated to hold a pointer to a tuple of the next three elements
+std::tuple<int64_t, int64_t, int64_t, int64_t> *globalNextFourElements = nullptr;
+
+class GroupTrie
+{
+private:
+    TrieNode *root;
+
+    // void printGroupsHelper(TrieNode *node, std::vector<int64_t> &path)
+    // {
+    //     if (!node)
+    //         return;
+
+    //     if (node->count > 0)
+    //     {
+    //         for (size_t i = 0; i < path.size(); ++i)
+    //         {
+    //             std::cout << path[i];
+    //             if (i < path.size() - 1)
+    //                 std::cout << ", ";
+    //         }
+    //         std::cout << " | Count: " << node->count << std::endl;
+    //     }
+
+    //     // Recurse for all children
+    //     for (auto &child : node->children)
+    //     {
+    //         path.push_back(child.first); // Add this child's value to the path
+    //         printGroupsHelper(child.second, path);
+    //         path.pop_back(); // Remove the child's value as we backtrack
+    //     }
+    // }
+
+public:
+    GroupTrie() : root(new TrieNode()) {}
+
+    ~GroupTrie()
+    {
+        delete root; // Ensure we clean up memory on destruction
+    }
+
+    // void printGroups()
+    // {
+    //     std::vector<int64_t> path;
+    //     printGroupsHelper(root, path);
+    // }
+
+    // // Insert a group into the trie
+    // void insert(const std::tuple<int64_t, int64_t, int64_t, int64_t> &group)
+    // {
+    //     TrieNode *node = root;
+    //     std::vector<TrieNode *> visitedNodes; // To enable backtracking
+    //     auto [first, second, third, fourth] = group;
+    //     std::array<int64_t, 4> elements = {first, second, third, fourth};
+
+    //     for (int i = 0; i < elements.size(); ++i)
+    //     {
+    //         int64_t element = elements[i];
+    //         if (node->children.find(element) == node->children.end())
+    //         {
+    //             node->children[element] = new TrieNode();
+    //         }
+    //         visitedNodes.push_back(node); // Add current node to visited for backtracking
+    //         node = node->children[element];
+    //     }
+
+    //     node->count++; // Increment the count at the final node
+
+    //     // Backtrack to update maxSubtreeCount and handle nextElementsSummary for the second element
+    //     for (auto it = visitedNodes.rbegin(); it != visitedNodes.rend(); ++it)
+    //     {
+    //         TrieNode *currentNode = *it;
+    //         currentNode->maxSubtreeCount = std::max(currentNode->maxSubtreeCount, node->count);
+
+    //         // Update nextElementsSummary at the second element node
+    //         if (currentNode == visitedNodes[1])
+    //         { // Second element node
+    //             if (currentNode->nextElementsSummary.empty() || currentNode->maxSubtreeCount < node->count)
+    //             {
+    //                 // If the summary is empty or the current group has a higher count than any previously recorded,
+    //                 // update the summary to only include the current group.
+    //                 currentNode->nextElementsSummary = {{std::make_tuple(third, fourth), node->count}};
+    //                 currentNode->maxSubtreeCount = node->count; // Update the max count for the subtree
+    //             }
+    //         }
+    //     }
+    // }
+    void update8thNodePotential(TrieNode *node, int depth = 0)
+    {
+        if (!node)
+            return; // Base case
+
+        // At the 6th node (3 levels down from groupRootNode)
+        if (depth == 4)
+        {
+            if (node->numberOfTimesPicked > 0 && node->count > 0 && prefetched > 0)
+            {
+                node->potential = 0.04 * sqrt(node->count) + 0.04 * sqrt(log(prefetched) / node->numberOfTimesPicked) + node->reward;
+                return;
+            }
+        }
+
+        // Recursive case: Traverse all children
+        for (auto &child : node->children)
+        {
+            update8thNodePotential(child.second, depth + 1);
+        }
+    }
+
+    void updateGroupRootNode(TrieNode *groupRootNode)
+    {
+        double maxPotential = 0.0;
+        std::tuple<int64_t, int64_t, int64_t, int64_t> bestGroup;
+        int bestGroupCount = 0;
+
+        // Assuming groupRootNode points to the node for the 3rd element
+        for (auto &child1 : groupRootNode->children)
+        {
+            for (auto &child2 : child1.second->children)
+            {
+                for (auto &child3 : child2.second->children)
+                {
+
+                    for (auto &child4 : child3.second->children)
+                    { // Check if this child's (representing the 6th element) potential is the highest found
+                        if (child4.second->potential > maxPotential)
+                        {
+                            maxPotential = child4.second->potential;
+                            bestGroup = std::make_tuple(child1.first, child2.first, child3.first, child4.first);
+                            bestGroupCount = child4.second->count;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update the groupRootNode with the found best group details
+        groupRootNode->maxPotential = maxPotential;
+        if (maxPotential > 0)
+        {                                                   // Check ensures we have a meaningful update
+            groupRootNode->nextFourElementsSummary.clear(); // Clear existing summaries if needed
+            groupRootNode->nextFourElementsSummary.push_back({bestGroup, bestGroupCount});
+        }
+    }
+
+    void insert(const std::tuple<int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t, int64_t> &group)
+    {
+        TrieNode *node = root;
+        std::vector<TrieNode *> visitedNodes; // To enable backtracking
+        auto [first, second, third, fourth, fifth, sixth, seventh, eighth] = group;
+        std::array<int64_t, 8> elements = {first, second, third, fourth, fifth, sixth, seventh, eighth};
+
+        for (int i = 0; i < elements.size(); ++i)
+        {
+            int64_t element = elements[i];
+            if (node->children.find(element) == node->children.end())
+            {
+                node->children[element] = new TrieNode();
+            }
+            visitedNodes.push_back(node); // Add current node to visited for backtracking
+            node = node->children[element];
+        }
+        node->count++;        // Increment the count at the final node
+        if (node->count == 1) // Updating number of unique groups
+        {
+            n_total++;
+        }
+        if (node->numberOfTimesPicked > 0 && node->count > 0 && prefetched > 0)
+            node->potential = 0.04 * sqrt(log(node->count)) + 0.04 * sqrt(log(prefetched) / node->numberOfTimesPicked) + node->reward;
+
+        // std::cout << "Inserted" << std::endl;
+
+        // Update the summary for the third element node with the next three elements
+        if (visitedNodes.size() > 4) // Ensure there's a third element node
+        {
+            TrieNode *fourthElementNode = visitedNodes[4]; // Third element is at index 2
+            // std::cout << "Inside if" << std::endl;
+
+            // Check if it's necessary to update the nextFourElementsSummary
+            if (fourthElementNode->nextFourElementsSummary.empty() || fourthElementNode->maxPotential <= node->potential)
+            {
+                // std::cout << "Updating summary" << std::endl;
+                fourthElementNode->nextFourElementsSummary = {{std::make_tuple(fifth, sixth, seventh, eighth), node->count}};
+                fourthElementNode->maxPotential = node->potential; // Update the max count for the subtree
+            }
+        }
+
+        // NOT REQUIRED
+        // // Backtrack to update maxPotential for all nodes in the path
+        // for (auto it = visitedNodes.rbegin(); it != visitedNodes.rend(); ++it)
+        // {
+        //     TrieNode *currentNode = *it;
+        //     currentNode->maxPotential = std::max(currentNode->maxPotential, node->potential);
+        // }
+    }
+    void queryNextElementsForHighestCountGroup(int64_t firstElement, int64_t secondElement, int64_t thirdElement, int64_t fourthElement)
+    {
+        TrieNode *node = root;
+        TrieNode *groupRootNode = nullptr;
+
+        if (node->children.find(firstElement) != node->children.end())
+        {
+            node = node->children[firstElement];
+            if (node->children.find(secondElement) != node->children.end())
+            {
+                node = node->children[secondElement];
+                if (node->children.find(thirdElement) != node->children.end())
+                {
+                    node = node->children[thirdElement];
+                    if (node->children.find(fourthElement) != node->children.end())
+                    {
+                        // Move to the node representing the fourth element
+                        node = node->children[fourthElement];
+                        groupRootNode = node; // Now this node represents the start of the group with the first four elements
+
+                        auto &summary = node->nextFourElementsSummary[0];
+                        if (summary.second > 200) // Check if the count of the group is greater than 100
+                        {
+                            globalGroupRootNode = groupRootNode;
+                            // std::cout << ">100 updating" << std::endl;
+                            // Update to hold the tuple of the next three elements
+                            delete globalNextFourElements; // Ensure we clean up any previous allocation
+
+                            // added
+                            // std::cout << summary.second << std::endl;
+
+                            globalNextFourElements = new std::tuple<int64_t, int64_t, int64_t, int64_t>(std::get<0>(summary.first), std::get<1>(summary.first), std::get<2>(summary.first), std::get<3>(summary.first));
+
+                            // Reduce numberOfTimesPicked by factor of 0.99 for all groups under groupRootNode
+                            // updateNumberOfTimesPicked(groupRootNode);
+
+                            // Increment numberOfTimesPicked for the picked group
+                            groupRootNode->children[std::get<0>(summary.first)]->children[std::get<1>(summary.first)]->children[std::get<2>(summary.first)]->children[std::get<3>(summary.first)]->numberOfTimesPicked++;
+
+                            // ntotal = 0.99 *  ntotal + 1
+                            // n_total =  n_total + 1;
+                        }
+                        else
+                        {
+                            // Reset global variables if no group meets the condition
+                            // std::cout << "<100 so no updating" << std::endl;
+                            globalGroupRootNode = nullptr;
+                            delete globalNextFourElements;
+                            globalNextFourElements = nullptr;
+                        }
+                    }
+                    else
+                    {
+                        // Fourth element not found
+                        globalGroupRootNode = nullptr;
+                        delete globalNextFourElements;
+                        globalNextFourElements = nullptr;
+                    }
+                }
+                else
+                {
+                    // Third element not found
+                    globalGroupRootNode = nullptr;
+                    delete globalNextFourElements;
+                    globalNextFourElements = nullptr;
+                }
+            }
+            else
+            {
+                // Second element not found
+                globalGroupRootNode = nullptr;
+                delete globalNextFourElements;
+                globalNextFourElements = nullptr;
+            }
+        }
+        else
+        {
+            // First element not found
+            globalGroupRootNode = nullptr;
+            delete globalNextFourElements;
+            globalNextFourElements = nullptr;
+        }
+    }
+
+    void incrementReward(TrieNode *groupRootNode, const std::tuple<int64_t, int64_t, int64_t, int64_t> &nextFourElements)
+    {
+        if (!groupRootNode)
+            return;
+
+        // Update to handle the three elements following the initial group
+        std::array<int64_t, 4> elements = {std::get<0>(nextFourElements), std::get<1>(nextFourElements), std::get<2>(nextFourElements), std::get<3>(nextFourElements)};
+        // std::vector<TrieNode *> path;
+
+        TrieNode *node = groupRootNode;
+        for (int64_t element : elements)
+        {
+            if (node->children.find(element) == node->children.end())
+            {
+                // The complete group does not exist
+                return;
+            }
+            // path.push_back(node); // Track the path for updating ancestors
+            node = node->children[element];
+        }
+        node->reward++; // Increment the count at the final node of the group
+        // std::cout << "Incremented" << std::endl;
+
+        // // Update maxPotential for all ancestor nodes
+        // for (TrieNode *ancestor : path)
+        // {
+        //     ancestor->maxPotential = std::max(ancestor->maxPotential, node->count);
+        // }
+    }
+
+    void decrementReward(TrieNode *groupRootNode, const std::tuple<int64_t, int64_t, int64_t, int64_t> &nextFourElements)
+    {
+        if (!groupRootNode)
+            return;
+
+        // Update to handle the three elements following the initial group
+        std::array<int64_t, 4> elements = {std::get<0>(nextFourElements), std::get<1>(nextFourElements), std::get<2>(nextFourElements), std::get<3>(nextFourElements)};
+        // std::vector<TrieNode *> path;
+
+        TrieNode *node = groupRootNode;
+        for (int64_t element : elements)
+        {
+            if (node->children.find(element) == node->children.end())
+            {
+                // The complete group does not exist
+                return;
+            }
+            // path.push_back(node); // Track the path for updating ancestors
+            node = node->children[element];
+        }
+
+        // Decrement the count at the final node of the group
+        if (node->count > 0)
+        { // Ensure the count doesn't go negative
+            node->reward--;
+        }
+        // std::cout << "Decremented" << std::endl;
+
+        // Update maxPotential for all ancestor nodes, including the last
+        // for (TrieNode *ancestor : path)
+        // {
+        //     if (ancestor->maxPotential > 0)
+        //     {
+        //         ancestor->maxPotential = std::max(ancestor->maxPotential, node->count);
+        //     }
+        // }
+    }
+};
+GroupTrie trie;
+
+void CACHE::l1d_prefetcher_initialize()
+{
+}
+
+void CACHE::l1d_prefetcher_operate(uint64_t addr, uint64_t ip, uint8_t cache_hit, uint8_t type, uint8_t critical_ip_flag)
+{
+
+    if (trace_count <= trace_total_count)
+    {
+        uint64_t temp_addr = addr >> LOG2_BLOCK_SIZE;
+
+        // Update and rotate previous addresses
+        std::rotate(prev_addrs.begin(), prev_addrs.begin() + 1, prev_addrs.end());
+        prev_addrs.back() = temp_addr;
+
+        std::rotate(prev_ips.begin(), prev_ips.begin() + 1, prev_ips.end());
+            prev_ips.back() = ip;
+
+        // Check if we have enough addresses to calculate differences
+        if (prev_addrs[0] != 0 && trace_count >= 8) // Ensures we have four addresses to work with
+        {
+            // Calculate differences
+            auto diff = std::make_tuple(
+                    (prev_ips[1] + prev_addrs[1] - prev_addrs[0]),
+                    (prev_ips[2] + prev_addrs[2] - prev_addrs[1]),
+                    (prev_ips[3] + prev_addrs[3] - prev_addrs[2]),
+                    (prev_ips[4] + prev_addrs[4] - prev_addrs[3]),
+                    prev_addrs[5] - prev_addrs[4],
+                    prev_addrs[6] - prev_addrs[5],
+                    prev_addrs[7] - prev_addrs[6],
+                    prev_addrs[8] - prev_addrs[7]); // CHANGED
+
+            // std:: cout << "Inserting" << std:: endl;
+            // Use GroupTrie insert method directly for updating or inserting the difference group
+            if (((prev_addrs[1] - prev_addrs[0])!=0)||((prev_addrs[2] - prev_addrs[1])!=0)||((prev_addrs[3] - prev_addrs[2])!=0)||((prev_addrs[4] - prev_addrs[3])!=0)||((prev_addrs[5] - prev_addrs[4])!=0)||((prev_addrs[6] - prev_addrs[5])!=0)||((prev_addrs[7] - prev_addrs[6])!=0)||((prev_addrs[8] - prev_addrs[7])!=0))
+            {
+                trie.insert(diff);
+            }
+            
+            
+        }
+
+        trace_count++;
+
+        return;
+    }
+
+    // if (prin == 0)
+    // {
+    //     trie.printGroups();
+    //     prin = 1;
+    // }
+
+    // std::cout<< "Trie created \n" << std::endl;
+
+    static uint64_t temp1 = 0;
+    static uint64_t temp2 = 0;
+    static uint64_t temp3 = 0;
+    static int64_t stride1 = 0;
+    static int64_t stride2 = 0;
+    static int64_t stride3 = 0;
+    static uint64_t temp_addr = 0;
+    static uint64_t prefetch1 = 0;
+    static uint64_t prefetch2 = 0;
+    static uint64_t prefetch3 = 0;
+    static uint64_t prefetch4 = 0;
+
+    static uint64_t temp4 = 0;
+    static uint64_t temp5 = 0;
+    static uint64_t temp6 = 0;
+    static uint64_t temp7 = 0;
+    static uint64_t temp8 = 0;
+
+    static int64_t stride4 = 0;
+    static int64_t stride5 = 0;
+    static int64_t stride6 = 0;
+    static int64_t stride7 = 0;
+    static int64_t stride8 = 0;
+
+    if (sanity == 0)
+    {
+        if (temp1 == 0)
+        {
+            temp1 = addr >> LOG2_BLOCK_SIZE;
+            prev_ips_check[0]= ip;
+            return;
+        }
+        else if (temp2 == 0)
+        {
+            temp2 = addr >> LOG2_BLOCK_SIZE;
+            prev_ips_check[1]= ip;
+            return;
+        }
+        else if (temp3 == 0)
+        {
+            temp3 = addr >> LOG2_BLOCK_SIZE;
+            prev_ips_check[2]= ip;
+            return;
+        }
+        else if (temp4 == 0)
+        {
+            temp4 = addr >> LOG2_BLOCK_SIZE;
+            prev_ips_check[3]= ip;
+            return;
+        }
+
+        else
+        {
+            temp_addr = addr >> LOG2_BLOCK_SIZE;
+            prev_ips_check[4]= ip;
+            if (flag == 0)
+            {
+                stride1 = prev_ips_check[1] +  temp2 - temp1;
+            stride2 = prev_ips_check[2] + temp3 - temp2;
+            stride3 = prev_ips_check[3] + temp4 - temp3;
+            stride4 = prev_ips_check[4] + temp_addr - temp4;
+            }
+            else
+                {
+                    stride1 = temp2 - temp1;
+            stride2 = temp3 - temp2;
+            stride3 = temp4 - temp3;
+            stride4 = temp_addr - temp4;
+                }
+            
+            
+
+            temp1 = temp_addr;
+            temp5 = temp_addr; // change this later
+
+            temp2 = 0;
+            temp3 = 0;
+            temp4 = 0;
+            sanity = 1;
+        }
+
+        // change this later
+        if (flag == 1)
+        {
+            if ((stride1 == std::get<0>(*globalNextFourElements) && globalNextFourElements != nullptr) && (stride2 == std::get<1>(*globalNextFourElements) && globalNextFourElements != nullptr) && (stride3 == std::get<2>(*globalNextFourElements) && globalNextFourElements != nullptr) && (stride4 == std::get<3>(*globalNextFourElements) && globalNextFourElements != nullptr))
+            {
+                // std::cout << "Match Found" << std::endl;
+                matched++;
+                trie.incrementReward(globalGroupRootNode, *globalNextFourElements);
+                if (globalStride1 != 0 || globalStride2 != 0 || globalStride3 != 0 || globalStride4 != 0 || stride1 != 0 || stride2 != 0 || stride3 != 0 || stride4 != 0)
+                {
+                    trie.insert(std::make_tuple(globalStride1, globalStride2, globalStride3, globalStride4, stride1, stride2, stride3, stride4));
+                }
+                // update potential
+                trie.update8thNodePotential(globalGroupRootNode, 0);
+
+                // update maxPotential and nextThreeElementSummary
+                trie.updateGroupRootNode(globalGroupRootNode);
+            }
+
+            else
+            {
+                trie.decrementReward(globalGroupRootNode, *globalNextFourElements);
+                // std::cout << "Not found" << std::endl;
+                if (globalStride1 != 0 || globalStride2 != 0 || globalStride3 != 0 || globalStride4 != 0 || stride1 != 0 || stride2 != 0 || stride3 != 0 || stride4 != 0)
+                {
+                    trie.insert(std::make_tuple(globalStride1, globalStride2, globalStride3, globalStride4, stride1, stride2, stride3, stride4));
+                }
+
+                // update potential
+                trie.update8thNodePotential(globalGroupRootNode, 0);
+
+                // update maxPotential and nextThreeElementSummary
+                trie.updateGroupRootNode(globalGroupRootNode);
+            }
+        }
+    }
+
+    if (sanity == 2)
+    {
+        if (temp5 == 0)
+        {
+            temp5 = addr >> LOG2_BLOCK_SIZE;
+            prev_ips_check[0]= ip;
+            return;
+        }
+        else if (temp6 == 0)
+        {
+            temp6 = addr >> LOG2_BLOCK_SIZE;
+            prev_ips_check[1]= ip;
+            return;
+        }
+        else if (temp7 == 0)
+        {
+            temp7 = addr >> LOG2_BLOCK_SIZE;
+            prev_ips_check[2]= ip;
+            return;
+        }
+        else if (temp8 == 0)
+        {
+            temp8 = addr >> LOG2_BLOCK_SIZE;
+            prev_ips_check[3]= ip;
+            return;
+        }
+        else
+        {
+            temp_addr = addr >> LOG2_BLOCK_SIZE;
+            prev_ips_check[4]= ip;
+            stride5 = temp6 - temp5;
+            stride6 = temp7 - temp6;
+            stride7 = temp8 - temp7;
+            stride8 = temp_addr - temp8;
+
+            temp5 = temp_addr;
+            temp1 = temp_addr;
+
+            temp6 = 0;
+            temp7 = 0;
+            temp8 = 0;
+
+            // std:: cout << "Inserting" << std::endl;
+            if (globalStride1 != 0 || globalStride2 != 0 || globalStride3 != 0 || globalStride4 != 0 || stride5 != 0 || stride6 != 0 || stride7 != 0 || stride8 != 0)
+            {
+                trie.insert(std::make_tuple(globalStride1, globalStride2, globalStride3, globalStride4, stride5, stride6, stride7, stride8));
+            }
+            stride1 = prev_ips_check[1] + stride5;
+            stride2 = prev_ips_check[2] + stride6;
+            stride3 = prev_ips_check[3] + stride7;
+            stride4 = prev_ips_check[4] + stride8;
+
+            sanity = 1;
+        }
+    }
+
+    if (sanity == 1)
+    {
+
+        globalStride1 = stride1;
+        globalStride2 = stride2;
+        globalStride3 = stride3;
+        globalStride4 = stride4;
+        trie.queryNextElementsForHighestCountGroup(stride1, stride2, stride3, stride4);
+
+        // std:: cout << globalGroupRootNode << std::endl;
+        // std:: cout << globalNextElements << std::endl;
+
+        if (globalGroupRootNode != nullptr && globalNextFourElements != nullptr)
+        {
+            int64_t nextElement1 = std::get<0>(*globalNextFourElements);
+            int64_t nextElement2 = std::get<1>(*globalNextFourElements);
+            int64_t nextElement3 = std::get<2>(*globalNextFourElements);
+            int64_t nextElement4 = std::get<3>(*globalNextFourElements);
+
+            // Use nextElement1 and nextElement2 as needed
+            prefetch1 = temp_addr + nextElement1;
+            prefetch2 = temp_addr + nextElement1 + nextElement2;
+            prefetch3 = temp_addr + nextElement1 + nextElement2 + nextElement3;
+            prefetch4 = temp_addr + nextElement1 + nextElement2 + nextElement3 + nextElement4;
+
+            prefetch1 = prefetch1 << LOG2_BLOCK_SIZE;
+            prefetch2 = prefetch2 << LOG2_BLOCK_SIZE;
+            prefetch3 = prefetch3 << LOG2_BLOCK_SIZE;
+            prefetch4 = prefetch4 << LOG2_BLOCK_SIZE;
+
+            // std::cout << "Prefetching" << std::endl;
+            prefetch_line(ip, addr, prefetch1, FILL_L1, 0);
+            prefetch_line(ip, addr, prefetch2, FILL_L1, 0);
+            prefetch_line(ip, addr, prefetch3, FILL_L1, 0);
+            prefetch_line(ip, addr, prefetch4, FILL_L1, 0);
+
+            sanity = 0;
+            flag = 1;
+        }
+        else
+        {
+            sanity = 2;
+        }
+    }
+}
+
+void CACHE::l1d_prefetcher_notify_about_dtlb_eviction(uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t evicted_addr, uint32_t metadata_in)
+{
+}
+
+void CACHE::l1d_prefetcher_cache_fill(uint64_t v_addr, uint64_t addr, uint32_t set, uint32_t way, uint8_t prefetch, uint64_t v_evicted_addr, uint64_t evicted_addr, uint32_t metadata_in)
+{
+
+#ifdef TRACE_DUMP
+    cout << "FILL:  CL Addr: " << (addr >> LOG2_BLOCK_SIZE) << "  Prefetch: " << unsigned(prefetch) << "  Cycle: " << current_core_cycle[cpu] << endl;
+#endif
+}
+
+void CACHE::l1d_prefetcher_final_stats()
+{
+    std::cout << "Completed " << std::endl;
+}
